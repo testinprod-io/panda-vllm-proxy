@@ -1,7 +1,7 @@
 FROM python:3.11
 
 WORKDIR /app
-COPY mock_vllm.py .
+COPY tests/mock/mock_vllm.py .
 
 RUN pip install fastapi uvicorn
 
