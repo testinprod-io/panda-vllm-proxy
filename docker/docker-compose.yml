@@ -1,0 +1,38 @@
+x-common: &common-config
+  restart: always
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "100m"
+      max-file: "5"
+  runtime: nvidia
+  environment:
+    - NVIDIA_VISIBLE_DEVICES=all
+    - TOKEN=API_KEY
+
+services:
+  vllm-proxy:
+    <<: *common-config
+    image: smstack/vllm-proxy:latest
+    container_name: vllm-proxy
+    privileged: true
+    volumes:
+      - /var/run/tappd.sock:/var/run/tappd.sock
+      - ./certs:/app/certs  # Persistent certificate storage
+    ports:
+      - "8000:8000"  # HTTPS port
+
+  vllm:
+    <<: *common-config
+    image: vllm/vllm-openai:v0.6.5
+    container_name: vllm
+    ports:
+      - "8001:8000"
+    volumes:
+      - /mnt:/mnt
+    command: >
+      --model deepseek-ai/deepseek-coder-1.3b-instruct
+      --max-model-len 4096
+      --dtype float16
+    # --gpu-memory-utilization 0.98
+    # --enforce_eager
