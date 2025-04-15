@@ -6,9 +6,8 @@ x-common: &common-config
       max-size: "100m"
       max-file: "5"
   runtime: nvidia
-  environment:
-    - NVIDIA_VISIBLE_DEVICES=all
-    - TOKEN=API_KEY
+  env_file:
+    - .env
 
 services:
   vllm-proxy:
@@ -18,9 +17,10 @@ services:
     privileged: true
     volumes:
       - /var/run/tappd.sock:/var/run/tappd.sock
-      - ./certs:/app/certs  # Persistent certificate storage
     ports:
       - "8000:8000"  # HTTPS port
+    depends_on:
+      - vllm
 
   vllm:
     <<: *common-config

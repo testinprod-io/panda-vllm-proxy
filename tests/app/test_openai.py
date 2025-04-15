@@ -7,7 +7,7 @@ import json
 # Import and setup test environment before importing app
 from tests.app.test_helpers import (
     setup_test_environment,
-    TEST_AUTH_HEADER
+    create_test_token
 )
 
 # Setup all mocks before importing app
@@ -26,6 +26,10 @@ async def yield_sse_response(data_list):
 @pytest.mark.asyncio
 @pytest.mark.respx
 async def test_stream_chat_completions_success(respx_mock):
+    # Create a valid JWT token
+    token = create_test_token()
+    auth_header = f"Bearer {token}"
+    
     # Test request data
     request_data = {
         "model": "test-model",
@@ -68,11 +72,11 @@ async def test_stream_chat_completions_success(respx_mock):
         )
     )
 
-    # Make request
+    # Make request with JWT token
     response = client.post(
         "/v1/chat/completions",
         json=request_data,
-        headers={"Authorization": TEST_AUTH_HEADER}
+        headers={"Authorization": auth_header}
     )
     
     # Verify response
@@ -97,6 +101,10 @@ async def test_stream_chat_completions_success(respx_mock):
 @pytest.mark.asyncio
 @pytest.mark.respx
 async def test_stream_chat_completions_upstream_error(respx_mock):
+    # Create a valid JWT token
+    token = create_test_token()
+    auth_header = f"Bearer {token}"
+    
     # Test request data
     request_data = {
         "model": "test-model",
@@ -119,11 +127,11 @@ async def test_stream_chat_completions_upstream_error(respx_mock):
         )
     )
 
-    # Make request
+    # Make request with JWT token
     response = client.post(
         "/v1/chat/completions",
         json=request_data,
-        headers={"Authorization": TEST_AUTH_HEADER}
+        headers={"Authorization": auth_header}
     )
     
     # Verify response

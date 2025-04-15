@@ -1,21 +1,6 @@
 version: '3.8'
 
 services:
-  redis:
-    image: redis:7.4-alpine
-    container_name: redis_local
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - vllm_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
-
   mock_vllm:
     build:
       context: ../..
@@ -35,19 +20,10 @@ services:
     container_name: vllm_proxy
     ports:
       - "8000:8000"
-    environment:
-      - TOKEN=test-token
-      - MODEL_NAME=deepseek-ai/deepseek-coder-1.3b-instruct
-      - CHAT_CACHE_EXPIRATION=1200
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - VLLM_URL=http://mock_vllm:8001/v1/chat/completions
-      - VLLM_METRICS_URL=http://mock_vllm:8001/metrics
+    env_file:
+      - .env
     depends_on:
-      redis:
-        condition: service_healthy
-      mock_vllm:
-        condition: service_started
+      - mock_vllm
     networks:
       - vllm_network
 
@@ -58,6 +34,3 @@ networks:
       driver: default
       config:
         - subnet: 172.20.0.0/16
-
-volumes:
-  redis_data: 

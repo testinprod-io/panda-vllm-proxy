@@ -4,10 +4,8 @@ from hashlib import sha256
 
 import httpx
 from app.api.helper.auth import verify_authorization_header
-from app.api.response.response import error
-from app.cache.cache import cache
 from app.logger import log
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
 
 router = APIRouter(tags=["openai"])
@@ -20,8 +18,6 @@ def hash(payload: str):
     return sha256(payload.encode()).hexdigest()
 
 async def stream_vllm_response(request_body: bytes):
-    request_sha256 = sha256(request_body).hexdigest()
-
     # Modify the request body to use the correct model path and lowercasemodel name
     request_json = json.loads(request_body)
     request_json["model"] = request_json["model"].lower()
@@ -34,7 +30,7 @@ async def stream_vllm_response(request_body: bytes):
         nonlocal chat_id, h
         async for chunk in response.aiter_text():
             h.update(chunk.encode())
-            # Extract the cache key (data.id) from the first chunk
+            # Extract the chat id (data.id) from the first chunk
             if not chat_id:
                 try:
                     data = chunk.strip("data: ").strip()
@@ -45,14 +41,7 @@ async def stream_vllm_response(request_body: bytes):
                     log.error(error_message)
                     raise Exception(error_message)
             yield chunk
-
-        response_sha256 = h.hexdigest()
-        # Cache the full request and response using the extracted cache key
-        if chat_id:
-            cache.set_chat(
-                chat_id, json.dumps(f"{request_sha256}:{response_sha256}")
-            )
-        else:
+        if not chat_id:
             error_message = "Chat id could not be extracted from the response"
             log.error(error_message)
             raise Exception(error_message)
