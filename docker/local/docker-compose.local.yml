@@ -1,3 +1,4 @@
+# docker compose file for local development - mock vllm inference server
 version: '3.8'
 
 services:
@@ -10,27 +11,3 @@ services:
       - "8001:8001"
     environment:
       - PYTHONUNBUFFERED=1
-    networks:
-      - vllm_network
-
-  vllm_proxy:
-    build:
-      context: ../..
-      dockerfile: docker/Dockerfile
-    container_name: vllm_proxy
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    depends_on:
-      - mock_vllm
-    networks:
-      - vllm_network
-
-networks:
-  vllm_network:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.20.0.0/16

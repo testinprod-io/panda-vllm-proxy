@@ -1,17 +1,19 @@
 import json
 import os
 from hashlib import sha256
-
 import httpx
-from app.api.helper.auth import verify_authorization_header
-from app.logger import log
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
+from dotenv import load_dotenv
+
+from ...api.helper.auth import verify_authorization_header
+from ...logger import log
+
+load_dotenv()
 
 router = APIRouter(tags=["openai"])
 
-VLLM_URL = os.getenv("VLLM_URL", "http://vllm:8000/v1/chat/completions")
-VLLM_METRICS_URL = os.getenv("VLLM_METRICS_URL", "http://vllm:8000/metrics")
+VLLM_URL = os.getenv("VLLM_URL")
 TIMEOUT = 60 * 10
 
 def hash(payload: str):
@@ -68,9 +70,3 @@ async def stream_vllm_response(request_body: bytes):
 async def chat_completions(request: Request, background_tasks: BackgroundTasks):
     request_body = await request.body()
     return await stream_vllm_response(request_body)
-
-@router.get("/metrics", dependencies=[Depends(verify_authorization_header)])
-async def metrics():
-    async with httpx.AsyncClient() as client:
-        response = await client.get(VLLM_METRICS_URL)
-        return PlainTextResponse(content=response.text)

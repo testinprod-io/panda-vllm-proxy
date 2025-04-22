@@ -21,36 +21,23 @@ source venv/bin/activate
 pip install
 ```
 
-## Run for development
-
-```bash
-# Run production server
-uvicorn main:app --host 0.0.0.0 --reload
-
-# Run development server
-fastapi dev main.py --host 0.0.0.0
-```
-
-## Production 
-
-### Build for production
-
-```bash
-bash docker/build.sh
-```
-
-### Run for production
+### 3-1. Run for production
 
 ```bash
 cd docker
 docker compose up -d
 ```
 
-### Run for local development
+### 3-2. Run for local development
 
 ```bash
+# Run local mock vllm
 cd docker/local
 docker compose -f docker-compose.local.yml up -d
+
+# Run vllm-proxy server locally
+cd ../..
+uvicorn src.app.main:app --host 0.0.0.0 --reload
 ```
 
 ## Tests

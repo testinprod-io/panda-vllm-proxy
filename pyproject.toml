@@ -2,7 +2,7 @@
 name = "vllm-proxy"
 version = "0.2.1"
 description = ""
-authors = ["Shawn TIAN"]
+authors = ["sm-stack"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
@@ -15,7 +15,8 @@ eth-utils = "^5.1.0"
 cryptography = "^43.0.1"
 redis = "^5.2.1"
 nv-local-gpu-verifier = "^2.3.0"
-PyJWT = "^2.8.0"
+PyJWT = "^2.7.0"
+python-dotenv = "^1.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
