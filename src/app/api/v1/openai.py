@@ -20,8 +20,6 @@ async def stream_vllm_response(request_body: bytes) -> Response:
     try:
         request_data = json.loads(request_body)
         request_json: ActionRequest = cast(ActionRequest, request_data)
-        if "model" in request_json:
-            request_json["model"] = request_json["model"].lower()
 
         # Check for custom actions
         action_registry = get_action_registry()
@@ -34,7 +32,7 @@ async def stream_vllm_response(request_body: bytes) -> Response:
         
         # Request the LLM and create streaming response
         response = await request_llm(modified_request_body)
-        if response.status_code != 200:
+        if isinstance(response, JSONResponse):
             return response
 
         return create_streaming_response(response)

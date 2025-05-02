@@ -2,28 +2,71 @@ import httpx, os
 import json
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+from typing import Union, List, Dict, Optional, Any
 
 load_dotenv()
 
 VLLM_URL = os.getenv("VLLM_URL")
 TIMEOUT = 60 * 10
+LLMSuccessResponse = Union[Dict[str, Any], List[Any]]
 
-async def request_llm(request_body: str, stream: bool = True):
+async def request_llm(request_body: str, stream: bool = True) -> Union[httpx.Response, JSONResponse, LLMSuccessResponse]:
     """
-    Request LLM with the given prompt.
+    Request LLM.
+    - Returns httpx.Response if stream=True and status=200 (for caller to handle streaming).
+    - Returns parsed JSON (dict or list) if stream=False and status=200 and response is valid JSON.
+    - Returns JSONResponse if status != 200 or if stream=False and response is not valid JSON, or on request errors.
     """
     client = httpx.AsyncClient(timeout=httpx.Timeout(TIMEOUT))
-    # Forward the request to the vllm backend
-    req = client.build_request("POST", VLLM_URL, content=request_body)
-    response = await client.send(req, stream=stream)
-    # If not 200, return the error response directly without streaming
-    if response.status_code != 200:
-        error_content = await response.aread()
-        await response.aclose()
-        await client.aclose()
-        return JSONResponse(
-            status_code=response.status_code, content=json.loads(error_content)
-        )
-    
-    return response
+    response: Optional[httpx.Response] = None
+    try:
+        headers = { "Content-Type": "application/json" }
+        req = client.build_request("POST", VLLM_URL, content=request_body, headers=headers)
+        response = await client.send(req, stream=stream)
+
+        # Handle non-200 status codes
+        if response.status_code != 200:
+            error_content_bytes = await response.aread()
+            try:
+                error_json = json.loads(error_content_bytes.decode('utf-8'))
+                return JSONResponse(status_code=response.status_code, content=error_json)
+            except json.JSONDecodeError:
+                return JSONResponse(
+                    status_code=response.status_code,
+                    content={"error": {"message": "Invalid or non-JSON error response from upstream LLM"}}
+                )
+            finally:
+                # Clean up response
+                if hasattr(response, 'aclose'):
+                    await response.aclose()
+
+        # Handle successful requests
+        if stream:
+            return response
+        else:
+            content_bytes = await response.aread()
+            try:
+                parsed_data: LLMSuccessResponse = json.loads(content_bytes.decode('utf-8'))
+                return parsed_data
+            except json.JSONDecodeError:
+                return JSONResponse(
+                    status_code=502, # Bad Gateway
+                    content={"error": {"message": "Received invalid JSON format from upstream LLM"}}
+                )
+            finally:
+                # Clean up response
+                if hasattr(response, 'aclose'):
+                    await response.aclose()
+
+    except httpx.RequestError as e:
+        return JSONResponse(status_code=503, content={"error": {"message": f"Service Unavailable: Cannot connect to LLM backend. {e}"}})
+    except Exception as e:
+        if response and hasattr(response, 'aclose') and not response.is_closed:
+            await response.aclose()
+        return JSONResponse(status_code=500, content={"error": {"message": f"Internal server error during LLM request: {e}"}})
+    finally:
+        # Close client unless we returned an active stream
+        is_streaming_success = stream and response is not None and response.status_code == 200 and not isinstance(response, JSONResponse)
+        if client and not client.is_closed and not is_streaming_success:
+            await client.aclose()
 

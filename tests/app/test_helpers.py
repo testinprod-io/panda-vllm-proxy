@@ -21,12 +21,22 @@ TEST_PRIV_KEY = b"-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAwhvqCC+37A+UX
 
 def create_test_token(payload=None, expires_in=None):
     """Helper function to create test JWT tokens"""
+    # Retrieve the APP_ID set for the test environment
+    test_app_id = os.environ.get("APP_ID", "test-app-id-default")
+
     if payload is None:
         payload = {
             "sub": "test_user",
             "iss": "privy.io",
+            "aud": test_app_id,
             "exp": int((datetime.now(timezone.utc) + timedelta(days=1)).timestamp())
         }
+    else:
+        if "aud" not in payload:
+            payload["aud"] = test_app_id
+        if "iss" not in payload:
+            payload["iss"] = "privy.io"
+
     if expires_in:
         payload["exp"] = int((datetime.now(timezone.utc) + expires_in).timestamp())
     
