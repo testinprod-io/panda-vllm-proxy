@@ -8,9 +8,11 @@ def validate_handler(handler: Any) -> ActionHandler:
 
 def get_action_registry() -> Dict[str, ActionHandler]:
     from .search import search_handler
-    
+    from .pdf import pdf_handler
+
     registry = {
         "use_search": validate_handler(search_handler),
+        "use_pdf": validate_handler(pdf_handler),
     }
     
     return registry

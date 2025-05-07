@@ -24,18 +24,25 @@ async def stream_vllm_response(request_body: bytes) -> Response:
         # Check for custom actions
         action_registry = get_action_registry()
         for action_key, handler in action_registry.items():
-            if action_key in request_json and request_json[action_key] is True:
+            if action_key in request_json and request_json.get(action_key) is True:
                 log.info(f"Executing custom action: {action_key}")
                 return await handler(request_json)
-        
-        modified_request_body = json.dumps(request_json)
-        
-        # Request the LLM and create streaming response
-        response = await request_llm(modified_request_body)
-        if isinstance(response, JSONResponse):
-            return response
 
-        return create_streaming_response(response)
+        # If no action handler was triggered, proceed to standard LLM call
+        modified_request_body_str = json.dumps(request_json)
+        should_stream = request_json.get("stream", True)
+
+        response_from_llm = await request_llm(modified_request_body_str, stream=should_stream)
+        
+        # Check if request_llm returned an error (which would be a JSONResponse)
+        if isinstance(response_from_llm, JSONResponse):
+            return response_from_llm
+        
+        # If no error, handle based on whether streaming was requested
+        if should_stream:
+            return create_streaming_response(response_from_llm)
+        else:
+            return JSONResponse(content=response_from_llm)
 
     except json.JSONDecodeError:
         log.error("Invalid JSON in request body")
