@@ -15,7 +15,7 @@ setup_test_environment()
 
 # Now we can safely import app code
 from app.main import app
-from app.api.v1.openai import VLLM_URL
+from app.api.helper.request_llm import VLLM_URL
 
 client = TestClient(app)
 

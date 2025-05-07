@@ -1,36 +1,7 @@
-from unittest.mock import patch, AsyncMock, MagicMock
-import sys
 import os
 import jwt
 from datetime import datetime, timedelta, timezone
-from dataclasses import dataclass
-
-# Mock TappdClient response
-@dataclass
-class MockTdxQuoteResult:
-    quote: str = "deadbeef"  # Valid hex string for testing
-
-def setup_verifier_mock():
-    # Mock the verifier module
-    mock_cc_admin = MagicMock()
-    mock_cc_admin.collect_gpu_evidence.return_value = [{
-        "attestationReportHexStr": "mock_report",
-        "certChainBase64Encoded": "mock_cert_chain"
-    }]
-    mock_verifier = MagicMock()
-    mock_verifier.cc_admin = mock_cc_admin
-    sys.modules['verifier'] = mock_verifier
-
-class MockTappdClientClass:
-    def __init__(self):
-        pass
-    
-    def tdx_quote(self, *args, **kwargs):
-        return MockTdxQuoteResult()
-
-def setup_dstack_mock():
-    sys.modules['dstack_sdk'] = MagicMock()
-    sys.modules['dstack_sdk'].TappdClient = MockTappdClientClass
+from fastapi import Request
 
 def setup_test_auth():
     os.environ["JWT_PUB_KEY"] = b"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwhvqCC+37A+UXgcvDl+7\nnbVjDI3QErdZBkI1VypVBMkKKWHMNLMdHk0bIKL+1aDYTRRsCKBy9ZmSSX1pwQlO\n/3+gRs/MWG27gdRNtf57uLk1+lQI6hBDozuyBR0YayQDIx6VsmpBn3Y8LS13p4pT\nBvirlsdX+jXrbOEaQphn0OdQo0WDoOwwsPCNCKoIMbUOtUCowvjesFXlWkwG1zeM\nzlD1aDDS478PDZdckPjT96ICzqe4O1Ok6fRGnor2UTmuPy0f1tI0F7Ol5DHAD6pZ\nbkhB70aTBuWDGLDR0iLenzyQecmD4aU19r1XC9AHsVbQzxHrP8FveZGlV/nJOBJw\nFwIDAQAB\n-----END PUBLIC KEY-----\n".decode('utf-8')
@@ -41,8 +12,6 @@ def setup_test_environment():
     This function must be called before importing any application code
     to ensure all necessary mocks are in place.
     """
-    setup_verifier_mock()
-    setup_dstack_mock()
     setup_test_auth()
     os.environ["TOKEN"] = 'test_token'
     os.environ["SIGNING_METHOD"] = 'ecdsa'
@@ -52,13 +21,26 @@ TEST_PRIV_KEY = b"-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAwhvqCC+37A+UX
 
 def create_test_token(payload=None, expires_in=None):
     """Helper function to create test JWT tokens"""
+    # Retrieve the APP_ID set for the test environment
+    test_app_id = os.environ.get("APP_ID", "test-app-id-default")
+
     if payload is None:
         payload = {
             "sub": "test_user",
             "iss": "privy.io",
+            "aud": test_app_id,
             "exp": int((datetime.now(timezone.utc) + timedelta(days=1)).timestamp())
         }
+    else:
+        if "aud" not in payload:
+            payload["aud"] = test_app_id
+        if "iss" not in payload:
+            payload["iss"] = "privy.io"
+
     if expires_in:
         payload["exp"] = int((datetime.now(timezone.utc) + expires_in).timestamp())
     
     return jwt.encode(payload, TEST_PRIV_KEY, algorithm="RS256")
+
+def create_test_request():
+    return Request(scope={"type": "http", "method": "GET", "path": "/test"})

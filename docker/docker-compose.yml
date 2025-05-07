@@ -31,7 +31,7 @@ services:
     volumes:
       - /mnt:/mnt
     command: >
-      --model deepseek-ai/deepseek-coder-1.3b-instruct
+      --model deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
       --max-model-len 4096
       --dtype float16
     # --gpu-memory-utilization 0.98

@@ -1,72 +1,51 @@
 import json
-import os
-from hashlib import sha256
-import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
-from dotenv import load_dotenv
+from typing import cast
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, HTTPException
+from fastapi.responses import Response, JSONResponse
 
 from ...api.helper.auth import verify_authorization_header
+from ...api.helper.request_llm import request_llm
+from ...api.helper.streaming import create_streaming_response
 from ...logger import log
-
-load_dotenv()
+from ...actions.registry import get_action_registry
+from ...actions.models import ActionRequest
 
 router = APIRouter(tags=["openai"])
 
-VLLM_URL = os.getenv("VLLM_URL")
-TIMEOUT = 60 * 10
+async def stream_vllm_response(request_body: bytes) -> Response:
+    """
+    Process the request body and handle custom actions if specified.
+    Returns either a custom action response or streams the LLM response.
+    """
+    try:
+        request_data = json.loads(request_body)
+        request_json: ActionRequest = cast(ActionRequest, request_data)
 
-def hash(payload: str):
-    return sha256(payload.encode()).hexdigest()
+        # Check for custom actions
+        action_registry = get_action_registry()
+        for action_key, handler in action_registry.items():
+            if action_key in request_json and request_json[action_key] is True:
+                log.info(f"Executing custom action: {action_key}")
+                return await handler(request_json)
+        
+        modified_request_body = json.dumps(request_json)
+        
+        # Request the LLM and create streaming response
+        response = await request_llm(modified_request_body)
+        if isinstance(response, JSONResponse):
+            return response
 
-async def stream_vllm_response(request_body: bytes):
-    # Modify the request body to use the correct model path and lowercasemodel name
-    request_json = json.loads(request_body)
-    request_json["model"] = request_json["model"].lower()
-    modified_request_body = json.dumps(request_json)
+        return create_streaming_response(response)
 
-    chat_id = None
-    h = sha256()
-
-    async def generate_stream(response):
-        nonlocal chat_id, h
-        async for chunk in response.aiter_text():
-            h.update(chunk.encode())
-            # Extract the chat id (data.id) from the first chunk
-            if not chat_id:
-                try:
-                    data = chunk.strip("data: ").strip()
-                    chunk_data = json.loads(data)
-                    chat_id = chunk_data.get("id")
-                except Exception as e:
-                    error_message = f"Failed to parse the first chunk: {e}"
-                    log.error(error_message)
-                    raise Exception(error_message)
-            yield chunk
-        if not chat_id:
-            error_message = "Chat id could not be extracted from the response"
-            log.error(error_message)
-            raise Exception(error_message)
-
-    client = httpx.AsyncClient(timeout=httpx.Timeout(TIMEOUT))
-    # Forward the request to the vllm backend
-    req = client.build_request("POST", VLLM_URL, content=modified_request_body)
-    response = await client.send(req, stream=True)
-    # If not 200, return the error response directly without streaming
-    if response.status_code != 200:
-        error_content = await response.aread()
-        await response.aclose()
-        await client.aclose()
-        return JSONResponse(
-            status_code=response.status_code, content=json.loads(error_content)
-        )
-
-    return StreamingResponse(
-        generate_stream(response),
-        media_type="text/event-stream",
-    )
+    except json.JSONDecodeError:
+        log.error("Invalid JSON in request body")
+        raise HTTPException(status_code=400, detail="Invalid JSON in request body")
+    except Exception as e:
+        log.error(f"Error processing request: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 @router.post("/chat/completions", dependencies=[Depends(verify_authorization_header)])
-async def chat_completions(request: Request, background_tasks: BackgroundTasks):
+async def chat_completions(request: Request, background_tasks: BackgroundTasks) -> Response:
+    """OpenAI-compatible chat completions endpoint with support for custom actions."""
     request_body = await request.body()
     return await stream_vllm_response(request_body)
