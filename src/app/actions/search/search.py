@@ -11,8 +11,11 @@ from .utils import (
     generate_reformulations, keyword_fallback, dedupe_results,
     summarize_url, augment_messages_with_search
 )
-from ...config.constants import MAX_RESULTS
+from ...config import get_settings
 from .models import SearchRequest, SearchResult, SearchResponse
+
+settings = get_settings()
+MAX_RESULTS = settings.MAX_RESULTS
 
 async def search_handler(request: Dict[str, Any]) -> StreamingResponse:
     """

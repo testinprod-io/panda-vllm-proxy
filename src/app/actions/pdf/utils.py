@@ -1,16 +1,16 @@
-import base64, io, json, os
+import base64, io, json
 from typing import List, Optional, Dict, Any, Tuple
 from pypdf import PdfReader
 from pdf2image import convert_from_bytes
-from dotenv import load_dotenv
 
 from app.actions.models import ActionRequest
 from app.logger import log
+from app.config import get_settings
 
-load_dotenv()
+settings = get_settings()
 
-BASE_MODEL = os.getenv("MODEL_NAME")
-MULTI_MODAL_MODEL = os.getenv("MULTI_MODAL_MODEL", BASE_MODEL)
+BASE_MODEL = settings.MODEL_NAME
+MULTI_MODAL_MODEL = settings.MULTI_MODAL_MODEL or BASE_MODEL
 MAX_TEXT_LENGTH = 30000 # TODO: make it configurable for each model
 PDF_IMAGE_FORMAT = "JPEG"
 

@@ -1,19 +1,15 @@
-from unittest.mock import patch, AsyncMock
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 import json
 
-# Import and setup test environment before importing app
 from tests.app.test_helpers import (
     setup_test_environment,
     create_test_token
 )
 
-# Setup all mocks before importing app
 setup_test_environment()
 
-# Now we can safely import app code
 from app.main import app
 from app.api.helper.request_llm import VLLM_URL
 

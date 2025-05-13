@@ -1,12 +1,13 @@
-import httpx, os
+import httpx
 import json
 from fastapi.responses import JSONResponse
-from dotenv import load_dotenv
 from typing import Union, List, Dict, Optional, Any
 
-load_dotenv()
+from ...config import get_settings
 
-VLLM_URL = os.getenv("VLLM_URL")
+settings = get_settings()
+
+VLLM_URL = settings.VLLM_URL
 TIMEOUT = 60 * 10
 LLMSuccessResponse = Union[Dict[str, Any], List[Any]]
 
