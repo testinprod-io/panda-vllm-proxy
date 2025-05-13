@@ -5,7 +5,7 @@ from typing import Optional
 from app.api.helper.request_llm import request_llm
 from app.api.helper.streaming import create_streaming_response
 from app.logger import log
-from app.actions.models import ActionRequest
+from app.api.v1.model import LLMRequest
 from app.actions.pdf.utils import (
     get_last_pdf_base64_from_lastest_messages,
     extract_text_from_pdf,
@@ -14,25 +14,27 @@ from app.actions.pdf.utils import (
     prepare_multimodal_request
 )
 
-async def pdf_handler(request: ActionRequest) -> StreamingResponse:
+async def pdf_handler(payload: LLMRequest) -> StreamingResponse:
     """
-    Handles requests containing PDF data. Extracts text for RAG or converts to images.
+    Handles requests containing PDF data, now expecting an LLMRequest object.
+    Extracts text for RAG or converts to images.
     Processes only the single most recent PDF found in the latest N messages.
     """
-    log.info("Processing PDF request.")
-    pdf_base64_tuple = get_last_pdf_base64_from_lastest_messages(request, request.get("threshold", 3))
+    log.info("Processing PDF request with LLMRequest payload.")
+    threshold_val = 3
+    pdf_base64_tuple = get_last_pdf_base64_from_lastest_messages(payload, threshold_val)
 
     if not pdf_base64_tuple:
-        log.error("PDF handler was called, but no valid PDF base64 data could be extracted.")
+        log.error("PDF handler was called, but no valid PDF base64 data could be extracted from LLMRequest.")
         return JSONResponse(
             status_code=400, 
-            content={"error": "Invalid or missing PDF data in pdf_url content part."}
+            content={"error": "Invalid or missing PDF data in pdf_url content part within messages."}
         )
 
     pdf_base64_string, reverse_slice_idx = pdf_base64_tuple
 
     final_llm_request_body_str: Optional[str] = None
-    num_original_messages = len(request["messages"])
+    num_original_messages = len(payload.messages) # Access messages from payload
 
     try:
         pdf_bytes = base64.b64decode(pdf_base64_string)
@@ -43,23 +45,24 @@ async def pdf_handler(request: ActionRequest) -> StreamingResponse:
             log.error(f"Calculated invalid target_message_actual_index: {target_message_actual_index}")
             return JSONResponse(status_code=400, content={"error": f"Invalid target_message_actual_index: {target_message_actual_index}"})
         
-        # TODO: decide the threshold for meaningful text
-        if extracted_text and len(extracted_text) > 50:
-            log.info(f"Extracted {len(extracted_text)} chars from PDF originating from original message index {target_message_actual_index}. Preparing RAG body.")
+        if extracted_text and len(extracted_text) > 50: # TODO: make 50 configurable
+            log.info(f"Extracted {len(extracted_text)} chars from PDF (orig msg index {target_message_actual_index}). Preparing RAG body.")
             final_llm_request_body_str = prepare_rag_body_for_pdf_message(
-                request, extracted_text, target_message_actual_index
+                payload, extracted_text, target_message_actual_index
             )
         else:
-            log.info(f"PDF text extraction failed/minimal (original msg index {target_message_actual_index}). Converting to images.")
+            log.info(f"PDF text extraction failed/minimal (orig msg index {target_message_actual_index}). Converting to images.")
             image_urls = convert_pdf_to_images_base64(pdf_bytes)
             if not image_urls:
-                log.error(f"Failed to convert PDF (original msg index {target_message_actual_index}) to images.")
+                log.error(f"Failed to convert PDF (orig msg index {target_message_actual_index}) to images.")
                 return JSONResponse(status_code=500, content={"error": "Failed to process PDF as text or images"})
             
             final_llm_request_body_str = prepare_multimodal_request(
-                request, image_urls, target_message_actual_index
+                payload, image_urls, target_message_actual_index
             )
-        should_stream = request.get("stream", True)
+        
+        # Access stream attribute from the LLMRequest payload
+        should_stream = payload.stream 
         log.info("Sending final processed request to LLM.")
         llm_response = await request_llm(final_llm_request_body_str, stream=should_stream)
 

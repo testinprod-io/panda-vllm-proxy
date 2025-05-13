@@ -1,6 +1,6 @@
 import json
 import asyncio
-from typing import Dict, Any, List, Optional
+from typing import List, Optional
 from fastapi.responses import StreamingResponse, JSONResponse
 from duckduckgo_search import DDGS
 
@@ -13,57 +13,60 @@ from .utils import (
 )
 from ...config import get_settings
 from .models import SearchRequest, SearchResult, SearchResponse
+from ...api.v1.model import LLMRequest, TextContent, SenderTypeEnum 
 
 settings = get_settings()
 MAX_RESULTS = settings.MAX_RESULTS
 
-async def search_handler(request: Dict[str, Any]) -> StreamingResponse:
+async def search_handler(payload: LLMRequest) -> StreamingResponse:
     """
     Handle search functionality by augmenting the request with search results.
     
     Args:
-        request: The validated request containing messages and search configuration
+        payload: The validated LLMRequest object
         
     Returns:
         StreamingResponse: A streaming response with search-augmented generation
     """
-    # Validate required fields
-    if "messages" not in request:
-        raise ValueError("Messages field is required for search")
+    # Extract the search query text from the last user message
+    user_chat_messages = [msg for msg in payload.messages if msg.role == SenderTypeEnum.USER.value or msg.role == "user"]
+    if not user_chat_messages:
+        log.warning("No user message found in LLMRequest for search.")
+        raise ValueError("No user message found in the request for search action.")
     
-    # Extract the search query from the last user message
-    user_messages = [msg for msg in request["messages"] if msg.get("role") == "user"]
-    if not user_messages:
-        raise ValueError("No user message found in the request")
+    last_user_chat_message = user_chat_messages[-1]
+    # Extract text from content parts
+    query_text_parts = []
+    for content_part in last_user_chat_message.content:
+        if isinstance(content_part, TextContent):
+            query_text_parts.append(content_part.text)
     
-    last_user_message = user_messages[-1]["content"]
-    log.info(f"Search query: {last_user_message}")
-    
-    # Perform search
-    search_results_str: Optional[str] = await perform_search(last_user_message)
-    
-    # TODO: add retry logic if no results
+    if not query_text_parts:
+        log.warning("No text content found in the last user message for search.")
+        raise ValueError("No text content found in the last user message for search action.")
 
-    augmented_request = request.copy()
-    original_messages = augmented_request.get("messages", [])
+    actual_search_query = " ".join(query_text_parts)
+    log.info(f"Extracted search query: {actual_search_query}")
+    
+    search_results_str: Optional[str] = await perform_search(actual_search_query)
+    
+    augmented_request_dict = payload.model_dump(exclude_none=True) 
+    original_messages_dicts = [msg.model_dump(exclude_none=True) for msg in payload.messages]
 
-    # Augment messages
-    augmented_request["messages"] = augment_messages_with_search(
-        original_messages, search_results_str
+    augmented_request_dict["messages"] = augment_messages_with_search(
+        original_messages_dicts, search_results_str
     )
 
-    # Remove the search flag to prevent recursion
-    augmented_request.pop("use_search", None)
+    augmented_request_dict.pop("use_search", None)
     
-    modified_request_body = json.dumps(augmented_request)
-    log.debug(f"Augmented request body for LLM: {modified_request_body[:500]}...")
+    modified_request_body_json_str = json.dumps(augmented_request_dict)
+    log.debug(f"Augmented request body for LLM: {modified_request_body_json_str[:500]}...")
     
-    # Call the final LLM for generation
-    response = await request_llm(modified_request_body)
-    if isinstance(response, JSONResponse):
-        return response
+    llm_response = await request_llm(modified_request_body_json_str)
+    if isinstance(llm_response, JSONResponse):
+        return llm_response
 
-    return create_streaming_response(response)
+    return create_streaming_response(llm_response)
 
 async def perform_search(query: str) -> Optional[str]:
     """
