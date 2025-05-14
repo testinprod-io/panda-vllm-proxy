@@ -12,7 +12,7 @@ x-common: &common-config
 services:
   vllm-proxy:
     <<: *common-config
-    image: smstack/vllm-proxy:latest
+    image: smstack/vllm-proxy:0.1.0-rc2
     container_name: vllm-proxy
     privileged: true
     ports:
@@ -24,7 +24,7 @@ services:
 
   vllm:
     <<: *common-config
-    image: vllm/vllm-openai:v0.6.5
+    image: vllm/vllm-openai:v0.8.5
     container_name: vllm
     ports:
       - "8001:8000"
@@ -32,7 +32,12 @@ services:
       - /mnt:/mnt
     command: >
       --model deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
-      --max-model-len 4096
       --dtype float16
-    # --gpu-memory-utilization 0.98
-    # --enforce_eager
+
+    # For Llama 4 Scout
+    # command: >
+    #   --model RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
+    #   --max-model-len ${MAX_MODEL_LENGTH}
+    #   --dtype auto
+    #   --kv-cache-dtype fp8
+    #   --gpu-memory-utilization 0.98

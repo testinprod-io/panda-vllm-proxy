@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     MODEL_NAME: str
     SUMMARIZATION_MODEL: str | None = None
     MULTI_MODAL_MODEL: str | None = None
+    MAX_MODEL_LENGTH: int | None = None
 
     MAX_RESULTS: int = 5
     SEARCH_TIMEOUT: float = 10.0
