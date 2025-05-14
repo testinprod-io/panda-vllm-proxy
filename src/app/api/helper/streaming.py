@@ -1,7 +1,7 @@
 import json
 from hashlib import sha256
 from typing import AsyncGenerator
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 from ...logger import log
 
 async def generate_stream(response, extract_id: bool = True) -> AsyncGenerator[str, None]:

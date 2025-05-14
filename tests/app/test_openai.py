@@ -1,19 +1,15 @@
-from unittest.mock import patch, AsyncMock
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 import json
 
-# Import and setup test environment before importing app
 from tests.app.test_helpers import (
     setup_test_environment,
     create_test_token
 )
 
-# Setup all mocks before importing app
 setup_test_environment()
 
-# Now we can safely import app code
 from app.main import app
 from app.api.helper.request_llm import VLLM_URL
 
@@ -26,18 +22,23 @@ async def yield_sse_response(data_list):
 @pytest.mark.asyncio
 @pytest.mark.respx
 async def test_stream_chat_completions_success(respx_mock):
-    # Create a valid JWT token
     token = create_test_token()
     auth_header = f"Bearer {token}"
-    
-    # Test request data
+
+    # Corrected request_data structure
     request_data = {
         "model": "test-model",
-        "messages": [{"role": "user", "content": "Hello"}],
-        "stream": True
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Hello"}
+                ]
+            }
+        ],
+        "stream": True,
     }
-    
-    # Mock streaming response data
+
     chat_id = "chatcmpl-123"
     responses = [
         {
@@ -63,7 +64,6 @@ async def test_stream_chat_completions_success(respx_mock):
         }
     ]
 
-    # Setup RESPX mock
     route = respx_mock.post(VLLM_URL).mock(
         return_value=httpx.Response(
             200,
@@ -72,18 +72,15 @@ async def test_stream_chat_completions_success(respx_mock):
         )
     )
 
-    # Make request with JWT token
     response = client.post(
         "/v1/chat/completions",
         json=request_data,
         headers={"Authorization": auth_header}
     )
     
-    # Verify response
     assert response.status_code == 200
     assert route.called
 
-    # Collect all streaming responses
     chunks = []
     content = response.content.decode()
     for line in content.split('\n'):
@@ -91,7 +88,6 @@ async def test_stream_chat_completions_success(respx_mock):
             chunk = json.loads(line.replace('data: ', ''))
             chunks.append(chunk)
     
-    # Verify streaming response content
     assert len(chunks) == 3
     assert chunks[0]["id"] == chat_id
     assert chunks[0]["choices"][0]["delta"]["role"] == "assistant"
@@ -101,19 +97,24 @@ async def test_stream_chat_completions_success(respx_mock):
 @pytest.mark.asyncio
 @pytest.mark.respx
 async def test_stream_chat_completions_upstream_error(respx_mock):
-    # Create a valid JWT token
     token = create_test_token()
     auth_header = f"Bearer {token}"
-    
-    # Test request data
+
+    # Corrected request_data structure
     request_data = {
         "model": "test-model",
-        "messages": [{"role": "user", "content": "Hello"}],
-        "stream": True
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Hello"}
+                ]
+            }
+        ],
+        "stream": True,
     }
-    
-    # Setup RESPX mock with a 400 error response
-    error_response = {
+
+    error_response_json = {
         "error": {
             "message": "Invalid request parameters",
             "type": "invalid_request_error",
@@ -123,22 +124,19 @@ async def test_stream_chat_completions_upstream_error(respx_mock):
     route = respx_mock.post(VLLM_URL).mock(
         return_value=httpx.Response(
             400,
-            json=error_response
+            json=error_response_json
         )
     )
 
-    # Make request with JWT token
     response = client.post(
         "/v1/chat/completions",
         json=request_data,
         headers={"Authorization": auth_header}
     )
     
-    # Verify response
     assert response.status_code == 400
     assert route.called
     
-    # Verify error response content
     response_data = response.json()
     assert "error" in response_data
     assert response_data["error"]["message"] == "Invalid request parameters"

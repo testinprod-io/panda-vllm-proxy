@@ -1,14 +1,11 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-
-load_dotenv()
 
 from .api import router as api_router
 from .api.response.response import ok, error, unexpect_error
 from .logger import log
-from .config.cors import get_cors_origins
+from .dependencies import get_cors_origins
 
 app = FastAPI()
 
