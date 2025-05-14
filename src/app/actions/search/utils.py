@@ -1,26 +1,25 @@
-import httpx, json, os
+import httpx, json
 from typing import List, Dict, Any, Optional
 from rake_nltk import Rake
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
 
 from ...logger import log
 from ...api.helper.request_llm import request_llm
-from ...config.constants import SEARCH_TIMEOUT, USER_AGENT
+from ...config import get_settings
 from .models import SearchResult
 
-load_dotenv()
-
-DEFAULT_MODEL_NAME = os.getenv("MODEL_NAME")
-REFORMULATION_MODEL = os.getenv("REFORMULATION_MODEL", DEFAULT_MODEL_NAME)
-SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL", DEFAULT_MODEL_NAME)
+settings = get_settings()
+DEFAULT_MODEL_NAME = settings.MODEL_NAME
+SUMMARIZATION_MODEL = settings.SUMMARIZATION_MODEL or DEFAULT_MODEL_NAME
+USER_AGENT = settings.USER_AGENT
+SEARCH_TIMEOUT = settings.SEARCH_TIMEOUT
 
 async def generate_reformulations(query: str, n: int) -> List[str]:
     """Generate n focused reformulations of the user's query (non-streaming)."""
     try:
         # TODO: fix this to call another vllm-proxy container or instance
         request_json = {
-            "model": REFORMULATION_MODEL,
+            "model": SUMMARIZATION_MODEL,
             "messages": [
                 {"role": "system", "content": "You are a query reformulation assistant. Respond only with the queries, one per line, no preamble."},
                 {"role": "user", "content": f"Generate {n} concise search queries, each on its own line, targeting this intent: \"{query}\""}

@@ -1,14 +1,11 @@
-import os
+import jwt
 from fastapi import HTTPException, Header, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-import jwt
+
+from ...config import get_settings
 
 limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
-
-JWT_PUB_KEY = os.getenv("JWT_PUB_KEY")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
-APP_ID = os.getenv("APP_ID")
 
 def verify_authorization_header(request: Request, authorization: str = Header(None)) -> str:
     """
@@ -17,7 +14,7 @@ def verify_authorization_header(request: Request, authorization: str = Header(No
     If there's no token, apply rate limiting with slowapi.
     
     Args:
-        request: The FastAPI request object
+        request: The LLMRequest object
         authorization: The raw Authorization header value
         
     Returns:
@@ -26,6 +23,12 @@ def verify_authorization_header(request: Request, authorization: str = Header(No
     Raises:
         HTTPException: If the token is invalid or expired
     """
+    settings = get_settings()
+
+    jwt_pub_key = settings.JWT_PUB_KEY
+    jwt_algorithm = settings.JWT_ALGORITHM
+    app_id = settings.APP_ID
+
     if not authorization or not authorization.startswith("Bearer "):
         rate_limit(request)
         return None
@@ -34,10 +37,10 @@ def verify_authorization_header(request: Request, authorization: str = Header(No
     try:
         payload = jwt.decode(
             token,
-            JWT_PUB_KEY,
+            jwt_pub_key,
             issuer="privy.io",
-            audience=APP_ID,
-            algorithms=[JWT_ALGORITHM],
+            audience=app_id,
+            algorithms=[jwt_algorithm],
             options={"verify_exp": True}
         )
         return payload

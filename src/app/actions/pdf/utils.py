@@ -1,52 +1,48 @@
-import base64, io, json, os
+import base64, io, json
 from typing import List, Optional, Dict, Any, Tuple
 from pypdf import PdfReader
 from pdf2image import convert_from_bytes
-from dotenv import load_dotenv
 
-from app.actions.models import ActionRequest
+from app.api.v1.model import LLMRequest, ChatMessage, ContentPart, TextContent, PdfContent, ImageContent, Url, SenderTypeEnum
 from app.logger import log
+from app.config import get_settings
 
-load_dotenv()
+settings = get_settings()
 
-BASE_MODEL = os.getenv("MODEL_NAME")
-MULTI_MODAL_MODEL = os.getenv("MULTI_MODAL_MODEL", BASE_MODEL)
+BASE_MODEL = settings.MODEL_NAME
+MULTI_MODAL_MODEL = settings.MULTI_MODAL_MODEL or BASE_MODEL
 MAX_TEXT_LENGTH = 30000 # TODO: make it configurable for each model
 PDF_IMAGE_FORMAT = "JPEG"
 
-def _clean_message_of_pdf_urls(message_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Creates a new message dict with pdf_url content parts removed."""
-    if not isinstance(message_dict, dict):
-        return message_dict
+def _clean_message_of_pdf_urls(chat_message: ChatMessage) -> ChatMessage:
+    """Creates a new ChatMessage instance with pdf_url content parts removed."""
+    if not chat_message.content:
+        return chat_message
 
-    cleaned_message = message_dict.copy()
-    original_content = cleaned_message.get("content")
+    new_content_list: List[ContentPart] = []
+    for part in chat_message.content:
+        if isinstance(part, PdfContent):
+            continue
+        new_content_list.append(part)
+    
+    # Create a new ChatMessage with the cleaned content, preserving other fields
+    return ChatMessage(role=chat_message.role, content=new_content_list)
 
-    if isinstance(original_content, list):
-        new_content_list = []
-        for item in original_content:
-            if isinstance(item, dict) and item.get("type") == "pdf_url":
-                continue # Skip the pdf_url part
-            new_content_list.append(item)
-        cleaned_message["content"] = new_content_list
-    return cleaned_message
-
-def get_last_pdf_base64_from_lastest_messages(request: ActionRequest, threshold: int = 3) -> Optional[Tuple[str, int]]:
-    """Extracts base64 PDF data and its original message's reverse slice index from the LATEST 'pdf_url' in the last N messages."""
+def get_last_pdf_base64_from_lastest_messages(payload: LLMRequest, threshold: int = 3) -> Optional[Tuple[str, int]]:
+    """Extracts base64 PDF data and its original message's reverse slice index from the LATEST 'PdfContent' in the last N messages."""
     # reverse_slice_idx is 0 for a PDF in the last message of the slice, 1 for 2nd to last, etc.
-    for reverse_slice_idx, message in enumerate(reversed(request["messages"][-threshold:])):
-        if not (message and isinstance(message.get("content"), list)):
+    messages_to_check = payload.messages[-threshold:]
+    for reverse_slice_idx, message_obj in enumerate(reversed(messages_to_check)):
+        if not message_obj.content:
             continue
 
-        for content_item_dict in message["content"]:
-            if isinstance(content_item_dict, dict) and content_item_dict.get("type") == "pdf_url":
-                pdf_url_dict = content_item_dict.get("pdf_url")
-                if isinstance(pdf_url_dict, dict):
-                    pdf_url_data = pdf_url_dict.get("url", "")
-                    if pdf_url_data.startswith("data:application/pdf;base64,"):
-                        # Found the latest PDF, return its data and index
-                        return (pdf_url_data.split(",", 1)[1], reverse_slice_idx)
-    return None # No PDF found in the threshold
+        for content_item_obj in message_obj.content:
+            if isinstance(content_item_obj, PdfContent):
+                pdf_url_data = content_item_obj.pdf_url
+                actual_url_string = pdf_url_data.url
+                if actual_url_string and actual_url_string.startswith("data:application/pdf;base64,"):
+                    return (actual_url_string.split(",", 1)[1], reverse_slice_idx)
+    return None
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> Optional[str]:
     """Extracts text content from PDF bytes using PyPDF."""
@@ -79,56 +75,63 @@ def convert_pdf_to_images_base64(pdf_bytes: bytes) -> List[str]:
         raise
 
 def prepare_rag_body_for_pdf_message(
-    original_request: ActionRequest, 
+    original_payload: LLMRequest, 
     pdf_text: str, 
     target_message_actual_index: int
 ) -> str:
-    """Prepares a JSON request string for the RAG model.
+    """Prepares a JSON request string for the RAG model using LLMRequest.
     The PDF text is injected as a system message before the target user message.
     All messages are cleaned of pdf_url content parts.
-    Does NOT modify original_request.
     """
-    new_llm_messages = []
-    for i, msg_dict in enumerate(original_request["messages"]):
-        cleaned_msg = _clean_message_of_pdf_urls(msg_dict)
+    new_llm_chat_messages: List[Dict[str, Any]] = []
+    for i, msg_obj in enumerate(original_payload.messages):
+        cleaned_msg_obj = _clean_message_of_pdf_urls(msg_obj)
         if i == target_message_actual_index:
-            system_prompt = {
-                "role": "system",
-                "content": f"You are a helpful assistant. Answer the user's query based ONLY on the text provided below, which was extracted from a PDF document.\n--- PDF TEXT START ---\n{pdf_text}\n--- PDF TEXT END ---"
-            }
-            new_llm_messages.append(system_prompt)
-            new_llm_messages.append(cleaned_msg)
-        else:
-            new_llm_messages.append(cleaned_msg)
+            system_prompt_content = [
+                TextContent(type="text", text=f"You are a helpful assistant. Answer the user's query based ONLY on the text provided below, which was extracted from a PDF document.\n--- PDF TEXT START ---\n{pdf_text}\n--- PDF TEXT END ---").model_dump()
+            ]
+            system_prompt_message = ChatMessage(role=SenderTypeEnum.SYSTEM, content=system_prompt_content).model_dump()
+            new_llm_chat_messages.append(system_prompt_message)
+        new_llm_chat_messages.append(cleaned_msg_obj.model_dump())
 
-    rag_request_body = {
+    rag_request_body_dict = {
         "model": BASE_MODEL,
-        "messages": new_llm_messages,
-        "max_tokens": original_request.get("max_tokens"),
-        "stream": original_request.get("stream", True)
+        "messages": new_llm_chat_messages,
+        "max_tokens": original_payload.max_tokens,
+        "stream": original_payload.stream,
+        "temperature": original_payload.temperature
+        # Remove use_pdf, use_search etc. as they are action flags
     }
-    return json.dumps(rag_request_body)
+    return json.dumps(rag_request_body_dict)
 
 def prepare_multimodal_request(
-    original_request: ActionRequest, 
+    original_payload: LLMRequest, 
     image_urls: List[str], 
     target_message_actual_index: int
 ) -> str:
-    """Prepares the JSON request string for the multi-modal model.
+    """Prepares the JSON request string for the multi-modal model using LLMRequest.
     Associates images with the text from the target_message_actual_index.
-    Currently does not include additional conversation history.
     """
-    new_llm_messages = []
-    for i, msg_dict in enumerate(original_request["messages"]):
-        cleaned_msg = _clean_message_of_pdf_urls(msg_dict)
-        if i == target_message_actual_index:
-            cleaned_msg["content"].append({"type": "image_url", "image_url": {"url": image_urls[0]}})
-        new_llm_messages.append(cleaned_msg)
+    new_llm_messages_dicts: List[Dict[str, Any]] = []
+    for i, msg_obj in enumerate(original_payload.messages):
+        cleaned_msg_obj = _clean_message_of_pdf_urls(msg_obj)
+        msg_dict = cleaned_msg_obj.model_dump()
 
-    multimodal_request_body = {
+        if i == target_message_actual_index:
+            if not isinstance(msg_dict.get("content"), list):
+                 msg_dict["content"] = [msg_dict.get("content")] if msg_dict.get("content") else [] # Normalize if single item
+            
+            for img_url_str in image_urls:
+                image_content_part = ImageContent(type="image_url", image_url=Url(url=img_url_str)).model_dump()
+                msg_dict["content"].append(image_content_part)
+        
+        new_llm_messages_dicts.append(msg_dict)
+
+    multimodal_request_body_dict = {
         "model": MULTI_MODAL_MODEL,
-        "messages": new_llm_messages,
-        "max_tokens": original_request.get("max_tokens", 1024),
-        "stream": original_request.get("stream", True)
+        "messages": new_llm_messages_dicts,
+        "max_tokens": original_payload.max_tokens,
+        "stream": original_payload.stream,
+        "temperature": original_payload.temperature
     }
-    return json.dumps(multimodal_request_body)
+    return json.dumps(multimodal_request_body_dict)

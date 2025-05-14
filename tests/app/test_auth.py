@@ -1,9 +1,9 @@
 import pytest
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
-from tests.app.test_helpers import setup_test_auth, create_test_token, create_test_request
+from tests.app.test_helpers import create_test_token, create_test_request, setup_test_environment
 
-setup_test_auth()
+setup_test_environment()
 
 from app.api.helper.auth import verify_authorization_header
 
