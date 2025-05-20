@@ -2,12 +2,25 @@
 version: '3.8'
 
 services:
+  vllm-proxy:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    container_name: vllm-proxy
+    ports:
+      - "127.0.0.1:8080:8000"
+    depends_on:
+      - mock_vllm
+    environment:
+      - VLLM_URL=http://mock_vllm:8001/v1/chat/completions
+      - MODEL_NAME=MOCK_VLLM
+      - JWT_ALGORITHM=ES256
+      - JWT_PUB_KEY=""
+      - APP_ID=""
   mock_vllm:
     build:
       context: ../..
       dockerfile: docker/local/mock_vllm.Dockerfile
     container_name: mock_vllm
-    ports:
-      - "8001:8001"
     environment:
       - PYTHONUNBUFFERED=1
