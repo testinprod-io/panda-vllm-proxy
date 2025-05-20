@@ -15,10 +15,10 @@ services:
     image: smstack/vllm-proxy:latest
     container_name: vllm-proxy
     privileged: true
-    volumes:
-      - /var/run/tappd.sock:/var/run/tappd.sock
     ports:
-      - "8000:8000"  # HTTPS port
+      - "8000:8000"  # HTTP port
+    environment:
+      - WORKERS=4
     depends_on:
       - vllm
 
