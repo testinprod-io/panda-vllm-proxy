@@ -4,7 +4,7 @@ from rake_nltk import Rake
 from bs4 import BeautifulSoup
 
 from ...logger import log
-from ...api.helper.request_llm import request_llm
+from ...api.helper.request_llm import arequest_llm
 from ...config import get_settings
 from .models import SearchResult
 
@@ -31,7 +31,7 @@ async def generate_reformulations(query: str, n: int) -> List[str]:
         request_body = json.dumps(request_json)
 
         # Call with stream=False
-        response_data = await request_llm(request_body, stream=False)
+        response_data = await arequest_llm(request_body, stream=False)
         if response_data.status_code != 200:
             return [query] # Fallback
 
@@ -136,7 +136,7 @@ async def summarize_url(query: str, result: SearchResult) -> SearchResult:
         }
         request_body = json.dumps(request_json)
 
-        response_data = await request_llm(request_body, stream=False)
+        response_data = await arequest_llm(request_body, stream=False)
         if response_data.status_code != 200:
             return result
 
@@ -157,7 +157,7 @@ async def summarize_url(query: str, result: SearchResult) -> SearchResult:
             except (IndexError, KeyError, TypeError):
                 return result
         else:
-            log.error(f"Received unexpected data type from non-streaming request_llm for summarization: {type(response_data)}")
+            log.error(f"Received unexpected data type from non-streaming arequest_llm for summarization: {type(response_data)}")
             return result
 
     except Exception:
