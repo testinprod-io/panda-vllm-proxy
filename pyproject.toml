@@ -28,6 +28,7 @@ httpx = "^0.28.1"
 pydantic-settings = "^2.9.1"
 transformers = {git = "https://github.com/huggingface/transformers", rev = "v4.51.3-Qwen2.5-Omni-preview"}
 gunicorn = "^23.0.0"
+langchain = "0.3.25"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
