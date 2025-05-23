@@ -6,6 +6,7 @@ from .api import router as api_router
 from .api.response.response import ok, error, unexpect_error
 from .logger import log
 from .dependencies import get_cors_origins
+from .middleware import prove_server_identity
 
 app = FastAPI()
 
@@ -17,6 +18,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.middleware("http")(prove_server_identity)
 
 app.include_router(api_router)
 

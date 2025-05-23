@@ -17,6 +17,9 @@ class Settings(BaseSettings):
 
     CORS_ALLOWED_ORIGINS: list[str] = ["*"]
 
+    TLS_CERT_PATH: str | None = None
+    TLS_CERT_PRIVATE_KEY_PATH: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
