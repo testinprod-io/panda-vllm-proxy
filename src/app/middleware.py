@@ -19,8 +19,6 @@ settings = get_settings()
 if settings.TLS_CERT_PRIVATE_KEY_PATH is None or settings.TLS_CERT_PATH is None:
     log.warn("No cert path provided. will skip cert signing")
 else:
-    import os
-    print(os.listdir("/tmp/cert"))
     with open(settings.TLS_CERT_PRIVATE_KEY_PATH, "rb") as f:
         priv_pem = f.read()
     private_key = serialization.load_pem_private_key(priv_pem, password=None)
