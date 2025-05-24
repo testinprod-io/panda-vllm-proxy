@@ -1,0 +1,85 @@
+x-common: &common-config
+  restart: always
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "100m"
+      max-file: "5"
+  runtime: nvidia
+
+services:
+  vllm-proxy-deepseek:
+    <<: *common-config
+    image: smstack/vllm-proxy:0.1.0-rc2
+    container_name: vllm-proxy-deepseek
+    privileged: true
+    ports:
+      - "8000:8000"  # HTTP port
+    environment:
+      - WORKERS=4
+    env_file:
+      - .env.deepseek
+    depends_on:
+      - vllm-deepseek
+  vllm-proxy-llama:
+    <<: *common-config
+    image: smstack/vllm-proxy:0.1.0-rc2
+    container_name: vllm-proxy-llama
+    privileged: true
+    ports:
+      - "8001:8000"  # HTTP port
+    environment:
+      - WORKERS=4
+    env_file:
+      - .env.llama
+    depends_on:
+      - vllm-llama
+  vllm-deepseek:
+    <<: *common-config
+    image: vllm/vllm-openai:v0.8.5
+    container_name: vllm-deepseek
+    ports:
+      - "8002:8000"
+    volumes:
+      - /mnt:/mnt
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              device_ids: ["0","1","2","3","4","5","6"]
+    shm_size: "8g"
+    command: >
+      --model ig1/r1-1776-AWQ
+      --dtype auto
+      --tensor-parallel-size 1
+      --pipeline-parallel-size 7
+      --gpu-memory-utilization 0.98
+      --enable-chunked-prefill
+      --enable-reasoning  
+      --reasoning-parser deepseek_r1  
+      --max-model-len 65536
+    environment:
+      - CUDA_VISIBLE_DEVICE=0,1,2,3,4,5,6
+  vllm-llama:
+    <<: *common-config
+    image: vllm/vllm-openai:v0.8.5
+    container_name: vllm-llama
+    ports:
+      - "8003:8000"
+    volumes:
+      - /mnt:/mnt
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              device_ids: ["7"]
+    command: >
+      --model RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
+      --dtype auto
+      --max-model-len 64000
+      --kv-cache-dtype fp8
+      --gpu-memory-utilization 0.98
+    environment:
+      - CUDA_VISIBLE_DEVICE=0
