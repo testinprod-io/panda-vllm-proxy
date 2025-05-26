@@ -21,7 +21,7 @@ class PandaWebRetriever(BaseRetriever):
         description="Text splitter for splitting web pages into chunks",
     )
     num_search_results: int = Field(
-        default=1,
+        default=2,
         description="Number of search results to return",
     )
 

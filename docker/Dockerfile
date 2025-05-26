@@ -36,6 +36,8 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        poppler-utils \
+       libgl1-mesa-glx \
+       libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # bring in installed Python packages and app

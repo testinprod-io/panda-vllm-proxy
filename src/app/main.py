@@ -14,6 +14,7 @@ async def lifespan(app: FastAPI):
     # Download NLTK resources, used for keyword extraction at RAG
     nltk.download("stopwords", quiet=True)
     nltk.download("punkt", quiet=True)
+    nltk.download("punkt_tab", quiet=True)
 
     yield
 
