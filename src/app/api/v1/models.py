@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional, Union, Any
+from typing import List, Literal, Optional, Union, Any, Dict
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 
@@ -49,3 +49,25 @@ class LLMRequest(BaseModel):
 
 class SummaryResponse(BaseModel):
     summary: str
+
+class LLMSuccessChoiceMessage(BaseModel):
+    role: Optional[str] = None
+    reasoning_content: Optional[str] = None
+    content: Optional[str] = None
+    tool_calls: Optional[List[Dict[str, Any]]] = None
+
+class LLMSuccessChoice(BaseModel):
+    message: LLMSuccessChoiceMessage
+    index: int
+    finish_reason: Optional[str] = None
+    stop_reason: Optional[str] = None
+    logprobs: Optional[List[float]] = None
+
+class LLMSuccessResponse(BaseModel):
+    id: Optional[str] = None
+    object: Optional[str] = None
+    created: Optional[int] = None
+    model: Optional[str] = None
+    choices: List[LLMSuccessChoice]
+    usage: Optional[Dict[str, Any]] = None
+    prompt_logprobs: Optional[List[float]] = None

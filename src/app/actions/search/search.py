@@ -13,7 +13,7 @@ from .utils import (
 )
 from ...config import get_settings
 from .models import SearchRequest, SearchResult, SearchResponse
-from ...api.v1.model import LLMRequest, TextContent, SenderTypeEnum 
+from ...api.v1.models import LLMRequest, TextContent, SenderTypeEnum 
 
 settings = get_settings()
 MAX_RESULTS = settings.MAX_RESULTS
