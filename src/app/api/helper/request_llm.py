@@ -2,8 +2,11 @@ import httpx
 import json
 from fastapi.responses import JSONResponse
 from typing import Union, List, Dict, Optional, Any
+from datetime import datetime
 
 from ...config import get_settings
+from ...logger import log
+from ...prompts.prompts import DEFAULT_SYSTEM_PROMPT
 
 settings = get_settings()
 
@@ -20,6 +23,12 @@ async def arequest_llm(request_body: str, stream: bool = True, vllm_url: str = V
     """
     client = httpx.AsyncClient(timeout=httpx.Timeout(TIMEOUT))
     response: Optional[httpx.Response] = None
+
+    # Add system prompt to the request body
+    request_body = add_system_prompt(request_body)
+
+    log.info(f"Request body: {request_body}")
+
     try:
         headers = { "Content-Type": "application/json" }
         req = client.build_request("POST", vllm_url, content=request_body, headers=headers)
@@ -78,6 +87,10 @@ def request_llm(request_body: str, stream: bool = True, vllm_url: str = VLLM_URL
     """
     client = httpx.Client(timeout=httpx.Timeout(TIMEOUT))
     response: Optional[httpx.Response] = None
+
+    # Add system prompt to the request body
+    request_body = add_system_prompt(request_body)
+
     try:
         headers = { "Content-Type": "application/json" }
         req = client.build_request("POST", vllm_url, content=request_body, headers=headers)
@@ -126,3 +139,8 @@ def request_llm(request_body: str, stream: bool = True, vllm_url: str = VLLM_URL
         if client and not client.is_closed and not is_streaming_success:
             client.close()
 
+def add_system_prompt(request_body: str) -> str:
+    """Add a system prompt to the messages."""
+    request_body = json.loads(request_body)
+    request_body["messages"] = [{"role": "system", "content": DEFAULT_SYSTEM_PROMPT.format(current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))}] + request_body["messages"]
+    return json.dumps(request_body)
