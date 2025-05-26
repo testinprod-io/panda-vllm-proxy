@@ -2,11 +2,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import Response, JSONResponse
 
 from ...api.helper.auth import verify_authorization_header
-from ...api.helper.request_llm import request_llm
+from ...api.helper.request_llm import arequest_llm
 from ...api.helper.streaming import create_streaming_response
 from ...logger import log
 from ...actions.registry import get_action_registry
-from .model import LLMRequest
+from .models import LLMRequest
 
 router = APIRouter(tags=["openai"])
 
@@ -25,7 +25,7 @@ async def stream_vllm_response(payload: LLMRequest) -> Response:
         modified_request_body_str = payload.model_dump_json(exclude_none=True)
         should_stream = payload.stream 
 
-        response_from_llm = await request_llm(modified_request_body_str, stream=should_stream)
+        response_from_llm = await arequest_llm(modified_request_body_str, stream=should_stream)
         
         if isinstance(response_from_llm, JSONResponse):
             return response_from_llm

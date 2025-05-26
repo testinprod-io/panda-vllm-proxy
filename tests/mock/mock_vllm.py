@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 import json
 import asyncio
 import logging
+import time
 
 # Configure logging with a higher level to reduce noise
 logging.basicConfig(level=logging.WARNING)
@@ -27,40 +28,73 @@ async def health_check():
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request):
     logger.info("Received chat completion request")
-    # Parse the request body
     body = await request.json()
     logger.info(f"Request body: {body}")
-    
-    async def generate_stream():
-        # Simulate streaming response
-        messages = [
-            {"role": "assistant", "content": "Hello"},
-            {"role": "assistant", "content": "!"},
-            {"role": "assistant", "content": " How can I help you today?"}
-        ]
-        
-        for i, msg in enumerate(messages):
-            response = {
-                "id": "chatcmpl-mock-123",
-                "object": "chat.completion.chunk",
-                "created": 1700000000,
-                "model": body.get("model", "mock-model"),
-                "choices": [{
-                    "index": 0,
-                    "delta": {"content": msg["content"]},
-                    "finish_reason": None if i < len(messages) - 1 else "stop"
-                }]
-            }
-            logger.info(f"Sending chunk: {response}")
-            yield f"data: {json.dumps(response)}\n\n"
-            await asyncio.sleep(0.1)  # Simulate processing time
-        
-        yield "data: [DONE]\n\n"
 
-    return StreamingResponse(
-        generate_stream(),
-        media_type="text/event-stream"
-    )
+    stream = body.get("stream", False)
+
+    mock_id = "chatcmpl-mock-123"
+    mock_model = body.get("model", "mock-model")
+    created_time = int(time.time())
+
+    messages_content_parts = ["Hello", "!", " How can I help you today?"]
+    
+    if stream:
+        async def generate_stream():
+            for i, content_part in enumerate(messages_content_parts):
+                response_chunk = {
+                    "id": mock_id,
+                    "object": "chat.completion.chunk",
+                    "created": created_time,
+                    "model": mock_model,
+                    "choices": [{
+                        "index": 0,
+                        "delta": {"content": content_part},
+                        "finish_reason": None if i < len(messages_content_parts) - 1 else "stop",
+                        "logprobs": None,
+                    }]
+                }
+                logger.info(f"Sending chunk: {response_chunk}")
+                yield f"data: {json.dumps(response_chunk)}\\n\\n"
+                await asyncio.sleep(0.01) # Simulate processing time, reduced for faster non-stream testing
+            
+            yield "data: [DONE]\\n\\n"
+
+        return StreamingResponse(
+            generate_stream(),
+            media_type="text/event-stream"
+        )
+    else:
+        # Non-streaming response
+        full_content = "".join(messages_content_parts)
+        
+        response_full = {
+            "id": mock_id,
+            "object": "chat.completion",
+            "created": created_time,
+            "model": mock_model,
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "reasoning_content": None,
+                    "content": full_content,
+                    "tool_calls": []
+                },
+                "logprobs": None,
+                "finish_reason": "stop",
+                "stop_reason": None
+            }],
+            "usage": { 
+                "prompt_tokens": body.get("max_tokens", 0) // 2 if body.get("max_tokens") else 10, 
+                "completion_tokens": len(full_content.split()), 
+                "total_tokens": (body.get("max_tokens", 0) // 2 if body.get("max_tokens") else 10) + len(full_content.split()),
+                "prompt_tokens_details": None
+            },
+            "prompt_logprobs": None
+        }
+        logger.info(f"Sending non-streamed response: {response_full}")
+        return JSONResponse(content=response_full)
 
 @app.get("/metrics")
 async def metrics():

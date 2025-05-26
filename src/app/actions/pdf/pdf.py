@@ -2,11 +2,11 @@ import base64
 from fastapi.responses import StreamingResponse, JSONResponse
 from typing import Optional
 
-from app.api.helper.request_llm import request_llm
-from app.api.helper.streaming import create_streaming_response
-from app.logger import log
-from app.api.v1.model import LLMRequest
-from app.actions.pdf.utils import (
+from ...api.helper.request_llm import arequest_llm
+from ...api.helper.streaming import create_streaming_response
+from ...logger import log
+from ...api.v1.models import LLMRequest
+from ...actions.pdf.utils import (
     get_last_pdf_base64_from_lastest_messages,
     extract_text_from_pdf,
     convert_pdf_to_images_base64,
@@ -64,7 +64,7 @@ async def pdf_handler(payload: LLMRequest) -> StreamingResponse:
         # Access stream attribute from the LLMRequest payload
         should_stream = payload.stream 
         log.info("Sending final processed request to LLM.")
-        llm_response = await request_llm(final_llm_request_body_str, stream=should_stream)
+        llm_response = await arequest_llm(final_llm_request_body_str, stream=should_stream)
 
         if isinstance(llm_response, JSONResponse):
             return llm_response

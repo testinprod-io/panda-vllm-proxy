@@ -3,9 +3,9 @@ from typing import List, Optional, Dict, Any, Tuple
 from pypdf import PdfReader
 from pdf2image import convert_from_bytes
 
-from app.api.v1.model import LLMRequest, ChatMessage, ContentPart, TextContent, PdfContent, ImageContent, Url, SenderTypeEnum
-from app.logger import log
-from app.config import get_settings
+from ...api.v1.models import LLMRequest, ChatMessage, ContentPart, TextContent, PdfContent, ImageContent, Url, SenderTypeEnum
+from ...logger import log
+from ...config import get_settings
 
 settings = get_settings()
 
