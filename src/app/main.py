@@ -1,14 +1,23 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-
+from contextlib import asynccontextmanager
 from .api import router as api_router
 from .api.response.response import ok, error, unexpect_error
 from .logger import log
 from .dependencies import get_cors_origins
 from .middleware import prove_server_identity
+import nltk
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Download NLTK resources, used for keyword extraction at RAG
+    nltk.download("stopwords", quiet=True)
+    nltk.download("punkt", quiet=True)
+
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 # Add CORS middleware
 app.add_middleware(

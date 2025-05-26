@@ -1,0 +1,99 @@
+from fastapi import HTTPException
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+from ...config import get_settings
+from ...logger import log
+from ...rag.summarizing_llm import SummarizingLLM
+
+settings = get_settings()
+
+SUMMARIZATION_MODEL = settings.SUMMARIZATION_MODEL or settings.MODEL_NAME
+SUMMARIZATION_VLLM_URL = settings.SUMMARIZATION_VLLM_URL
+
+SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS = 60000 
+PROMPT_OVERHEAD_TOKENS = 150 
+CHARS_PER_TOKEN_HEURISTIC = 3
+
+MAX_TEXT_TOKENS_FOR_LLM = SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS - PROMPT_OVERHEAD_TOKENS
+CHARACTER_CHUNK_SIZE = MAX_TEXT_TOKENS_FOR_LLM * CHARS_PER_TOKEN_HEURISTIC
+
+def generate_request_prompt(text_to_summarize: str, target_word_count: int) -> str:
+    """Generates the prompt for summarizing a piece of text."""
+    return f"Summarize the following text in approximately {target_word_count} words:\n\n{text_to_summarize}"
+
+async def _summarize_single_chunk(chunk_text: str, target_word_count_for_chunk: int) -> str:
+    """Helper function to summarize a single text chunk."""
+    prompt_for_chunk = generate_request_prompt(chunk_text, target_word_count_for_chunk)
+    
+    llm = SummarizingLLM(
+        model=SUMMARIZATION_MODEL,
+        vllm_url=SUMMARIZATION_VLLM_URL,
+        max_tokens=target_word_count_for_chunk,
+        temperature=0.2
+    )
+    try:
+        summary_text = await llm.ainvoke(input=prompt_for_chunk)
+        log.info(f"Summarization LLM response for chunk: {summary_text[:100]}...")
+        if not summary_text:
+            log.error(f"LLM call returned empty summary for chunk: {chunk_text[:100]}...")
+            return ""
+        return summary_text.strip()
+    except Exception as e:
+        log.error(f"Error summarizing chunk: {chunk_text[:100]}... Error: {e}", exc_info=True)
+        return f"[Error summarizing chunk: {str(e)}]"
+
+async def call_summarization_llm(text: str, max_tokens_for_final_summary: int) -> str:
+    """
+    Calls the LLM to summarize the provided text.
+    If the text is too long, it's split into chunks, each chunk is summarized,
+    and then the summaries are combined.
+    `max_tokens_for_final_summary` refers to the desired word count for the final summary.
+    """
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=CHARACTER_CHUNK_SIZE,
+        chunk_overlap=50,
+        length_function=len
+    )
+    
+    text_chunks = text_splitter.split_text(text)
+    log.info(f"Original text split into {len(text_chunks)} chunks for summarization.")
+
+    if not text_chunks:
+        log.warning("Text splitting resulted in no chunks. Returning empty summary.")
+        return ""
+
+    if len(text_chunks) == 1:
+        log.info("Text is short enough, summarizing directly.")
+        return await _summarize_single_chunk(text_chunks[0], max_tokens_for_final_summary)
+    else:
+        log.info(f"Text too long, summarizing {len(text_chunks)} chunks iteratively.")
+        chunk_summaries = []
+        # Distribute the final desired word count among chunks
+        approx_words_per_chunk_summary = max(50, max_tokens_for_final_summary // len(text_chunks))
+
+        for i, chunk in enumerate(text_chunks):
+            log.info(f"Summarizing chunk {i+1}/{len(text_chunks)}...")
+            # Each chunk summary contributes to the final summary's word count.
+            summary_of_chunk = await _summarize_single_chunk(chunk, approx_words_per_chunk_summary)
+            if summary_of_chunk and not summary_of_chunk.startswith("[Error"):
+                chunk_summaries.append(summary_of_chunk)
+        
+        if not chunk_summaries:
+            log.error("All chunk summarizations failed or returned empty.")
+            raise HTTPException(status_code=500, detail="Failed to summarize any part of the text.")
+
+        combined_summary = "\n\n---\n\n".join(chunk_summaries)
+        log.info(f"Combined summary from {len(chunk_summaries)} chunks.")
+
+        # One simple approach if combined_summary is too verbose:
+        if len(combined_summary.split()) > max_tokens_for_final_summary * 1.2: # If 20% over target
+            log.info("Combined summary is too long, attempting a final pass to condense.")
+            # The max_tokens for this final pass should be the originally requested one.
+            condensed_summary = await _summarize_single_chunk(combined_summary, max_tokens_for_final_summary)
+            if condensed_summary and not condensed_summary.startswith("[Error"):
+                return condensed_summary
+            else:
+                log.warning("Final condensation pass failed, returning combined summary of chunks.")
+                return combined_summary
+
+        return combined_summary
