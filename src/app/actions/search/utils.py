@@ -98,6 +98,5 @@ def augment_messages_with_search(
         + [system_information]
         + [original_messages[last_msg_index]]
     )
-    log.info(f"Augmented messages: {augmented_messages}")
 
     return augmented_messages

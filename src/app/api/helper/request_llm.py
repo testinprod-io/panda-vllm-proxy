@@ -27,8 +27,6 @@ async def arequest_llm(request_body: str, stream: bool = True, vllm_url: str = V
     # Add system prompt to the request body
     request_body = add_system_prompt(request_body)
 
-    log.info(f"Request body: {request_body}")
-
     try:
         headers = { "Content-Type": "application/json" }
         req = client.build_request("POST", vllm_url, content=request_body, headers=headers)
