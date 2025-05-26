@@ -31,6 +31,8 @@ langchain-text-splitters = "0.3.8"
 langchain-community = "0.3.24"
 html2text = "^2025.4.15"
 beautifulsoup4 = "^4.13.4"
+pymupdf = "^1.25.5"
+rapidocr-onnxruntime = "^1.4.4"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
