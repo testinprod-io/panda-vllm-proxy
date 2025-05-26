@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+from typing import Optional
 
 class Settings(BaseSettings):
     # LLM server urls
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     MAX_RESULTS: int = 5
     SEARCH_TIMEOUT: float = 10.0
     USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    BRAVE_SEARCH_API_KEY: Optional[str] = None
 
     # JWT config
     JWT_ALGORITHM: str

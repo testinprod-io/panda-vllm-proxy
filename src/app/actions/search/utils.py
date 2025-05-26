@@ -1,167 +1,76 @@
-import httpx, json
 from typing import List, Dict, Any, Optional
 from rake_nltk import Rake
-from bs4 import BeautifulSoup
 
 from ...logger import log
-from ...api.helper.request_llm import arequest_llm
 from ...config import get_settings
-from .models import SearchResult
+from ...rag.summarizing_llm import SummarizingLLM
 
 settings = get_settings()
-DEFAULT_MODEL_NAME = settings.MODEL_NAME
-SUMMARIZATION_MODEL = settings.SUMMARIZATION_MODEL or DEFAULT_MODEL_NAME
-USER_AGENT = settings.USER_AGENT
-SEARCH_TIMEOUT = settings.SEARCH_TIMEOUT
+KEYWORD_EXTRACTION_MODEL = settings.SUMMARIZATION_MODEL or settings.MODEL_NAME
+KEYWORD_EXTRACTION_VLLM_URL = settings.SUMMARIZATION_VLLM_URL
 
-async def generate_reformulations(query: str, n: int) -> List[str]:
-    """Generate n focused reformulations of the user's query (non-streaming)."""
+async def extract_keywords_llm(query: str, max_keywords: int = 5) -> List[str]:
+    """Helper to extract keywords using LLM."""
+    prompt = (
+        f"Extract the top {max_keywords} most important keywords from the following query. "
+        f"Return the keywords as a comma-separated list. For example, if the query is "
+        f"'What are the latest advancements in AI for healthcare?', you should return "
+        f"'AI, healthcare, latest advancements'.\n\nQuery: \"{query}\"\n\nKeywords:"
+    )
+    
+    llm = SummarizingLLM(
+        model=KEYWORD_EXTRACTION_MODEL,
+        vllm_url=KEYWORD_EXTRACTION_VLLM_URL,
+        max_tokens=max_keywords * 10,
+        temperature=0.1 # Low temperature for deterministic keyword extraction
+    )
     try:
-        # TODO: fix this to call another vllm-proxy container or instance
-        request_json = {
-            "model": SUMMARIZATION_MODEL,
-            "messages": [
-                {"role": "system", "content": "You are a query reformulation assistant. Respond only with the queries, one per line, no preamble."},
-                {"role": "user", "content": f"Generate {n} concise search queries, each on its own line, targeting this intent: \"{query}\""}
-            ],
-            "temperature": 0.5,
-            "max_tokens": 150
-        }
-
-        request_body = json.dumps(request_json)
-
-        # Call with stream=False
-        response_data = await arequest_llm(request_body, stream=False)
-        if response_data.status_code != 200:
-            return [query] # Fallback
-
-        # Check if response_data is the expected dict format
-        if isinstance(response_data, dict) and 'choices' in response_data:
-            try:
-                content = response_data['choices'][0]['message']['content']
-                lines = content.strip().splitlines()
-                reformulations = [line.strip().lstrip("0123456789-.*• ") for line in lines if line.strip()]
-                if not reformulations:
-                    reformulations = [query]
-                return reformulations[:n]
-            except (IndexError, KeyError, TypeError) as e:
-                log.error(f"Error generating reformulations: {e}")
-                return [query] # Fallback
-        else:
-            log.error(f"Invalid response from LLM: {response_data}")
-            return [query] # Fallback
-
+        response_text = await llm.ainvoke(input=prompt)
+        log.debug(f"LLM response for keyword extraction ('{query}'): {response_text}")
+        if response_text:
+            # Simple comma separation, stripping whitespace
+            keywords = [kw.strip() for kw in response_text.split(',') if kw.strip()]
+            # Remove potential quotes or list-like formatting from LLM
+            cleaned_keywords = []
+            for kw in keywords:
+                kw = kw.strip('"''[]()')
+                if kw:
+                    cleaned_keywords.append(kw)
+            
+            if cleaned_keywords:
+                log.info(f"LLM extracted keywords for '{query}': {cleaned_keywords[:max_keywords]}")
+                return cleaned_keywords[:max_keywords]
     except Exception as e:
-        log.error(f"Error generating reformulations: {e}")
-        return [query]
+        log.error(f"Error during LLM keyword extraction for '{query}': {e}", exc_info=True)
+    return []
 
-def keyword_fallback(query: str) -> str:
-    """Extract top keywords using RAKE from the original query."""
-    try:
-        rake = Rake()
-        rake.extract_keywords_from_text(query)
-        keywords = rake.get_ranked_phrases()[:5] or query.split()[:5]
-        return " ".join(keywords)
-    except Exception as e:
-        log.error(f"Error extracting keywords: {e}")
-        return query
+def extract_keywords_rake(query: str, max_keywords: int = 5) -> List[str]:
+    """Helper to extract keywords using RAKE."""
+    r = Rake()
+    r.extract_keywords_from_text(query)
+    ranked_phrases_with_scores = r.get_ranked_phrases_with_scores()
+    ranked_phrases = sorted(ranked_phrases_with_scores, key=lambda x: (-x[0], len(x[1])))
+    
+    keywords = [phrase for score, phrase in ranked_phrases if score >= 1.0]
 
-def dedupe_results(results) -> List:
-    """Simple deduplication by URL."""
-    seen = set()
-    deduped = []
-    for r in results:
-        if hasattr(r, 'url') and r.url not in seen:
-            seen.add(r.url)
-            deduped.append(r)
-    return deduped
+    if keywords:
+        return keywords[:max_keywords]
+    log.warning(f"RAKE did not extract any keywords")
+    return []
 
-async def fetch_url_content(url: str) -> str:
-    """Fetch and extract text content from a URL."""
-    try:
-        headers = {"User-Agent": USER_AGENT}
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers, timeout=SEARCH_TIMEOUT, follow_redirects=True)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.text, "html.parser")
-            
-            for script in soup(["script", "style"]):
-                script.extract()
-                
-            text = soup.get_text(separator="\n")
-            
-            lines = [line.strip() for line in text.splitlines() if line.strip()]
-            text = "\n".join(lines)
-            
-            return text[:5000]
-    except Exception as e:
-        log.error(f"Error fetching URL {url}: {str(e)}")
-        return ""
 
-def chunk_text(text: str, chunk_size: int = 1000) -> List[str]:
-    """Split text into chunks of up to chunk_size characters."""
-    if not text:
+async def extract_keywords_from_query(query: str, max_keywords: int = 5) -> List[str]:
+    """Extract keywords from a query using LLM. Fallback to RAKE if no keywords are found."""
+    if not query.strip():
         return []
-    return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
 
-async def summarize_url(query: str, result: SearchResult) -> SearchResult:
-    """Summarize the contents of a URL, handling request_llm errors."""
-    if not result or not hasattr(result, 'url') or not result.url or result.url.startswith("javascript:"):
-        return result
-
-    try:
-        log.debug(f"Fetching content for summarization: {result.url}")
-        content = await fetch_url_content(result.url)
-        if not content or len(content) < 100:
-            log.debug(f"Content too short or fetch failed for {result.url}, skipping summarization.")
-            return result
-
-        chunks = chunk_text(content)
-        if not chunks:
-            log.debug(f"Could not chunk content for {result.url}, skipping summarization.")
-            return result
-
-        # TODO: fix this to call another vllm-proxy container or instance
-        # Create payload for summarization LLM
-        request_json = {
-            "model": SUMMARIZATION_MODEL,
-            "messages": [
-                {"role": "system", "content": f"You are a concise summarization assistant. Summarize the following text in 1-2 sentences, capturing the main points. The user's query is: \"{query}\""},
-                {"role": "system", "content": f"Think about what user is asking for and what is relevant to the query. Summarize the text accordingly."},
-                {"role": "user", "content": chunks[0][:8000]}  # limit size
-            ],
-            "temperature": 0.2, # Keep summaries factual
-            "max_tokens": 100   # Limit summary length
-        }
-        request_body = json.dumps(request_json)
-
-        response_data = await arequest_llm(request_body, stream=False)
-        if response_data.status_code != 200:
-            return result
-
-        # Handle successful dict response
-        if isinstance(response_data, dict) and 'choices' in response_data:
-            try:
-                summary = response_data['choices'][0]['message']['content']
-                if summary:
-                    original_snippet = getattr(result, 'snippet', '')
-                    combined_snippet = f"{original_snippet}\n\nSummary: {summary.strip()}" if original_snippet else f"Summary: {summary.strip()}"
-                    return SearchResult(
-                        title=getattr(result, 'title', 'N/A'),
-                        snippet=combined_snippet.strip(),
-                        url=result.url
-                    )
-                else:
-                    return result
-            except (IndexError, KeyError, TypeError):
-                return result
-        else:
-            log.error(f"Received unexpected data type from non-streaming arequest_llm for summarization: {type(response_data)}")
-            return result
-
-    except Exception:
-        return result
+    llm_keywords = await extract_keywords_llm(query, max_keywords)
+    if llm_keywords:
+        return llm_keywords
+    
+    log.warning(f"LLM keyword extraction failed or returned no keywords. Falling back to RAKE.")
+    rake_keywords = extract_keywords_rake(query, max_keywords)
+    return rake_keywords
 
 def augment_messages_with_search(
     original_messages: List[Dict[str, Any]],
