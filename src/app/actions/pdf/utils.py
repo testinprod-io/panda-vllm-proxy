@@ -3,7 +3,8 @@ from langchain_community.document_loaders.parsers import PyMuPDFParser, RapidOCR
 from langchain_core.documents.base import Blob
 from langchain_core.documents import Document
 
-from ...api.v1.models import ChatMessage, ContentPart, TextContent, PdfContent, SenderTypeEnum
+from ...api.v1.models import ChatMessage, ContentPart, PdfContent, SenderTypeEnum
+from ...prompts.prompts import PDF_SYSTEM_PROMPT
 
 def clean_message_of_pdf_urls(chat_message: ChatMessage) -> ChatMessage:
     """Creates a new ChatMessage instance with pdf_url content parts removed."""
@@ -61,14 +62,12 @@ def augment_messages_with_pdf(
     The PDF text is injected as a system message before the target user message.
     All messages are cleaned of pdf_url content parts.
     """
-    system_command = [
-        TextContent(type="text", text=f"You are a helpful assistant. Answer the user's query based ONLY on the text provided below, which was extracted from a PDF document.\n--- PDF TEXT START ---\n{pdf_text}\n--- PDF TEXT END ---").model_dump()
-    ]
+    system_command = PDF_SYSTEM_PROMPT.format(pdf_text=pdf_text)
     system_prompt_message = ChatMessage(role=SenderTypeEnum.SYSTEM, content=system_command).model_dump()
     last_msg_index = len(original_messages) - 1
     augmented_messages = (
         original_messages[:last_msg_index]
-        + [system_prompt_message] 
+        + [system_prompt_message]
         + [original_messages[last_msg_index]]
     )   
 

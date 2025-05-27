@@ -4,20 +4,19 @@ from rake_nltk import Rake
 from ...logger import log
 from ...config import get_settings
 from ...rag.summarizing_llm import SummarizingLLM
+from ...prompts.prompts import (
+    SEARCH_SYSTEM_PROMPT,
+    SEARCH_SYSTEM_INFORMATION_PROMPT,
+    EXTRACT_KEYWORDS_PROMPT
+)
 
 settings = get_settings()
 KEYWORD_EXTRACTION_MODEL = settings.SUMMARIZATION_MODEL or settings.MODEL_NAME
 KEYWORD_EXTRACTION_VLLM_URL = settings.SUMMARIZATION_VLLM_URL
 
-async def extract_keywords_llm(query: str, max_keywords: int = 5) -> List[str]:
+async def extract_keywords_llm(query: str, max_keywords: int = 3) -> List[str]:
     """Helper to extract keywords using LLM."""
-    prompt = (
-        f"Extract the top {max_keywords} most important keywords from the following query. "
-        f"Return the keywords as a comma-separated list. For example, if the query is "
-        f"'What are the latest advancements in AI for healthcare?', you should return "
-        f"'AI, healthcare, latest advancements'.\n\nQuery: \"{query}\"\n\nKeywords:"
-    )
-    
+    prompt = EXTRACT_KEYWORDS_PROMPT.format(query=query, max_keywords=max_keywords)
     llm = SummarizingLLM(
         model=KEYWORD_EXTRACTION_MODEL,
         vllm_url=KEYWORD_EXTRACTION_VLLM_URL,
@@ -84,20 +83,12 @@ def augment_messages_with_search(
     # TODO: do proper prompt engineering for this
     system_command = {
         "role": "system",
-        "content": (
-            "You are a helpful assistant who answers ONLY from the given search results.\\n"
-            "If the results do not contain the answer, reply: \"I couldn't find that in the search results.\"\\n"
-            "Based *only* on these search results and the user's query, provide a comprehensive answer. "
-            "You must only use English for the whole answer, thinking, reasoning, and response."
-        )
+        "content": SEARCH_SYSTEM_PROMPT
     }
     system_information = {
         "role": "system",
         "name": "search_results",
-        "content": (
-            f"Search results:\\n{search_results_str}\\n\\n"
-            "Use these search results to inform your response."
-        )
+        "content": SEARCH_SYSTEM_INFORMATION_PROMPT.format(search_results_str=search_results_str)
     }
 
     last_msg_index = len(original_messages) - 1
