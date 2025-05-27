@@ -4,6 +4,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from ...config import get_settings
 from ...logger import log
 from ...rag.summarizing_llm import SummarizingLLM
+from ...prompts.prompts import SUMMARIZATION_SYSTEM_PROMPT
 
 settings = get_settings()
 
@@ -19,7 +20,7 @@ CHARACTER_CHUNK_SIZE = MAX_TEXT_TOKENS_FOR_LLM * CHARS_PER_TOKEN_HEURISTIC
 
 def generate_request_prompt(text_to_summarize: str, target_word_count: int) -> str:
     """Generates the prompt for summarizing a piece of text."""
-    return f"Summarize the following text in approximately {target_word_count} words:\n\n{text_to_summarize}"
+    return SUMMARIZATION_SYSTEM_PROMPT.format(text_to_summarize=text_to_summarize, target_word_count=target_word_count)
 
 async def _summarize_single_chunk(chunk_text: str, target_word_count_for_chunk: int) -> str:
     """Helper function to summarize a single text chunk."""
