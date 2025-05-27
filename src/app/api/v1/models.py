@@ -5,6 +5,7 @@ from enum import Enum
 class SenderTypeEnum(str, Enum):
     USER = "user"
     SYSTEM = "system"
+    ASSISTANT = "assistant"
 
 class Url(BaseModel):
     url: str = Field(..., description="URL of the image or pdf, typically a base64 encoded data URI.")
