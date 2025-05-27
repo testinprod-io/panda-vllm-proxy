@@ -1,7 +1,7 @@
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import ec
 
 from fastapi import Request
 
@@ -22,16 +22,16 @@ else:
     with open(settings.TLS_CERT_PRIVATE_KEY_PATH, "rb") as f:
         priv_pem = f.read()
     private_key = serialization.load_pem_private_key(priv_pem, password=None)
-    assert isinstance(private_key, ed25519.Ed25519PrivateKey)
+    assert isinstance(private_key, ec.EllipticCurvePrivateKey)
 
     with open(settings.TLS_CERT_PATH, "rb") as f:
         cert_pem = f.read()
     cert = x509.load_pem_x509_certificate(cert_pem, default_backend())
     public_key = cert.public_key()
-    assert isinstance(public_key, ed25519.Ed25519PublicKey)
+    assert isinstance(public_key, ec.EllipticCurvePublicKey)
     hex_public_key = public_key.public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw
+        encoding=serialization.Encoding.X962,
+        format=serialization.PublicFormat.UncompressedPoint
     ).hex()
     log.info(f"Loaded TLS cert. public key: {hex_public_key}")
 
@@ -50,5 +50,5 @@ async def prove_server_identity(request: Request, call_next):
             log.info("No challenge of auth header. skipping cert signing")
             return resp
 
-    resp.headers["Panda-Signature"] = private_key.sign(challenge.encode("utf-8")).hex()
+    resp.headers["Panda-Signature"] = private_key.sign(challenge.encode("utf-8"), ec.ECDSA(hashes.SHA256())).hex()
     return resp
