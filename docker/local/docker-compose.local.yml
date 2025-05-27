@@ -13,6 +13,7 @@ services:
       - mock_vllm
     environment:
       - VLLM_URL=http://mock_vllm:8001/v1/chat/completions
+      - SUMMARIZATION_VLLM_URL=http://mock_vllm:8001
       - MODEL_NAME=MOCK_VLLM
       - JWT_ALGORITHM=ES256
       - JWT_PUB_KEY=""
