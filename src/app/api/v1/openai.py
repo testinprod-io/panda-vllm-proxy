@@ -10,7 +10,7 @@ from .models import LLMRequest
 
 router = APIRouter(tags=["openai"])
 
-async def stream_vllm_response(payload: LLMRequest) -> Response:
+async def stream_vllm_response(payload: LLMRequest, user_id: str) -> Response:
     """
     Process the LLMRequest payload and handle custom actions if specified.
     Returns either a custom action response or streams the LLM response.
@@ -20,12 +20,12 @@ async def stream_vllm_response(payload: LLMRequest) -> Response:
         for action_key, handler in action_registry.items():
             if hasattr(payload, action_key) and getattr(payload, action_key) is True:
                 log.info(f"Executing custom action: {action_key} based on LLMRequest field: {getattr(payload, action_key)}")
-                return await handler(payload) 
+                return await handler(payload, user_id)
 
         modified_request_body_str = payload.model_dump_json(exclude_none=True)
         should_stream = payload.stream 
 
-        response_from_llm = await arequest_llm(modified_request_body_str, stream=should_stream)
+        response_from_llm = await arequest_llm(modified_request_body_str, stream=should_stream, user_id=user_id, use_vector_db=True)
         
         if isinstance(response_from_llm, JSONResponse):
             return response_from_llm
@@ -39,7 +39,11 @@ async def stream_vllm_response(payload: LLMRequest) -> Response:
         log.error(f"Error processing request in stream_vllm_response: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
-@router.post("/chat/completions", dependencies=[Depends(verify_authorization_header)])
-async def chat_completions(payload: LLMRequest, background_tasks: BackgroundTasks) -> Response:
+@router.post("/chat/completions")
+async def chat_completions(
+    payload: LLMRequest, 
+    background_tasks: BackgroundTasks,
+    user_id_from_token: str = Depends(verify_authorization_header)
+) -> Response:
     """OpenAI-compatible chat completions endpoint with support for custom actions."""
-    return await stream_vllm_response(payload) # Pass the validated Pydantic model instance
+    return await stream_vllm_response(payload, user_id_from_token)
