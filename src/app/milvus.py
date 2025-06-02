@@ -19,7 +19,7 @@ class MilvusWrapper:
             embedding_function=self.embeddings,
             collection_name=self.collection_name,
             connection_args={"uri": get_settings().MILVUS_URI},
-            collection_properties={"collection.ttl.seconds": 300},
+            collection_properties={"collection.ttl.seconds": 3600},
             auto_id=True,
             drop_old=False,
         )
