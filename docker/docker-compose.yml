@@ -1,16 +1,6 @@
-x-common: &common-config
-  restart: always
-  logging:
-    driver: "json-file"
-    options:
-      max-size: "100m"
-      max-file: "5"
-  runtime: nvidia
-
 services:
   vllm-proxy-deepseek:
-    <<: *common-config
-    image: smstack/vllm-proxy:v0.2.0-rc1
+    image: smstack/vllm-proxy:v0.2.0-rc3
     container_name: vllm-proxy-deepseek
     privileged: true
     ports:
@@ -19,11 +9,15 @@ services:
       - WORKERS=4
     env_file:
       - .env.deepseek
+    volume:
+      - ./jwt_pub.pem:/app/jwt_pub.pem
+      - ./cert.pem:/tmp/cert/cert.pem
+      - ./key.pem:/tmp/cert/key.pem
     depends_on:
       - vllm-deepseek
+
   vllm-proxy-llama:
-    <<: *common-config
-    image: smstack/vllm-proxy:v0.2.0-rc1
+    image: smstack/vllm-proxy:v0.2.0-rc3
     container_name: vllm-proxy-llama
     privileged: true
     ports:
@@ -32,12 +26,17 @@ services:
       - WORKERS=4
     env_file:
       - .env.llama
+    volume:
+      - ./jwt_pub.pem:/app/jwt_pub.pem
+      - ./cert.pem:/tmp/cert/cert.pem
+      - ./key.pem:/tmp/cert/key.pem
     depends_on:
       - vllm-llama
+
   vllm-deepseek:
-    <<: *common-config
     image: vllm/vllm-openai:v0.8.5
     container_name: vllm-deepseek
+    runtime: nvidia
     ports:
       - "8002:8000"
     volumes:
@@ -61,10 +60,11 @@ services:
       --max-model-len 65536
     environment:
       - CUDA_VISIBLE_DEVICE=0,1,2,3,4,5,6
+
   vllm-llama:
-    <<: *common-config
     image: vllm/vllm-openai:v0.8.5
     container_name: vllm-llama
+    runtime: nvidia
     ports:
       - "8003:8000"
     volumes:
