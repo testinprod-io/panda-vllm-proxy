@@ -63,7 +63,7 @@ jobs:
             images+="${tag}@${DIGEST} "
           done
           images+="index.docker.io/${{ github.repository }}@${DIGEST}"
-          cosign sign --yes --annotation git-commit=${GIT_COMMIT} ${images}
+          cosign sign --yes --annotations git-commit=${GIT_COMMIT} ${images}
           cosign verify ${images} \
           --certificate-identity=https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/${{ github.ref_name }} \
           --certificate-oidc-issuer=https://token.actions.githubusercontent.com
