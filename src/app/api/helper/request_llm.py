@@ -8,7 +8,7 @@ import hashlib
 from ...config import get_settings
 from ...logger import log
 from ...prompts.prompts import DEFAULT_SYSTEM_PROMPT, VECTOR_DB_SYSTEM_PROMPT
-from ...milvus import MilvusWrapper
+from ...dependencies import get_milvus_wrapper
 
 LLMSuccessResponse = Union[Dict[str, Any], List[Any]]
 
@@ -158,7 +158,7 @@ def _apply_vector_db(request_body: str, user_id: str | None) -> str:
     log.info(f"Applying vector DB to the request body for user {user_id}.")
 
     user_collection_name = get_user_collection_name(user_id)
-    store_wrapper = MilvusWrapper()
+    store_wrapper = get_milvus_wrapper()
 
     # Get the last message
     request_body = json.loads(request_body)

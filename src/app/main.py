@@ -7,10 +7,9 @@ import nltk
 from .api import router as api_router
 from .api.response.response import ok, error, unexpect_error
 from .logger import log
-from .dependencies import get_cors_origins
+from .dependencies import get_cors_origins, get_milvus_wrapper
 from .middleware import prove_server_identity
 from .config import get_settings
-from .milvus import MilvusWrapper
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,9 +17,10 @@ async def lifespan(app: FastAPI):
     get_settings.cache_clear()
     log.info("Cleared LRU cache for get_settings() at startup.")
 
-    # Initialize embedding model for Milvus
-    # This loads the model, which is cached for future use
-    MilvusWrapper()
+    # Initialize MilvusWrapper to pre-load embedding model
+    log.info("Attempting to pre-load embedding model by initializing MilvusWrapper...")
+    get_milvus_wrapper()
+    log.info("MilvusWrapper initialized and embedding model should be pre-loaded.")
 
     # Download NLTK resources, used for keyword extraction at RAG
     nltk.download("stopwords", quiet=True)

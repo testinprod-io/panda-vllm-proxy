@@ -8,7 +8,7 @@ from ...api.helper.streaming import create_streaming_response
 from .utils import augment_messages_with_search, extract_keywords_from_query
 from ...api.v1.models import LLMRequest, TextContent, SenderTypeEnum 
 from ...rag import PandaWebRetriever
-from ...milvus import MilvusWrapper
+from ...dependencies import get_milvus_wrapper
 
 async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
     """
@@ -50,8 +50,8 @@ async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse
 
     # Save search results to vector DB
     user_collection_name = get_user_collection_name(user_id)
-    MilvusWrapper().from_documents_for_user(user_collection_name, search_results)
-    log.info(f"Saved search results to vector DB for user {user_id}.")
+    milvus_instance = get_milvus_wrapper()
+    milvus_instance.from_documents_for_user(user_collection_name, search_results)
 
     # Summarize the search results with the LLM
     search_results_str = "\n\n".join([result.page_content for result in search_results])
