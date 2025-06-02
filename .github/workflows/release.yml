@@ -62,7 +62,8 @@ jobs:
           for tag in ${TAGS}; do
             images+="${tag}@${DIGEST} "
           done
-          cosign sign --yes ${images}
+          images+="index.docker.io/${{ github.repository }}@${DIGEST}"
+          cosign sign --yes --annotation git-commit=${GIT_COMMIT} ${images}
           cosign verify ${images} \
           --certificate-identity=https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/${{ github.ref_name }} \
           --certificate-oidc-issuer=https://token.actions.githubusercontent.com
