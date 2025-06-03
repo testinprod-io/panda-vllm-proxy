@@ -4,6 +4,7 @@ set -euo pipefail
 
 required_vars=(
   PANDA_LLM_DOMAIN
+  PANDA_LLM_CERT_DOMAINS
   PANDA_CERT_DIR
   PANDA_ACME_URL
   PANDA_CF_API_TOKEN
@@ -31,15 +32,17 @@ envsubst "${env_list}" \
 
 echo "Generated config files from env variables"
 
+mkdir -p ${PANDA_CERT_DIR}/live
+
 PANDA_SSL_CERT_PATH=${PANDA_CERT_DIR}/live/cert.pem
 PANDA_SSL_PUBKEY_PATH=${PANDA_CERT_DIR}/live/pubkey.pub
 PANDA_SSL_KEY_PATH=${PANDA_CERT_DIR}/live/key.pem
-#PANDA_SSL_EC_KEY_PATH=${PANDA_CERT_DIR}/live/ec_key.pem
+PANDA_SSL_EC_KEY_PATH=${PANDA_CERT_DIR}/live/ec_key.pem
 
-#openssl ecparam -genkey -name prime256v1 -out "$PANDA_SSL_EC_KEY_PATH"
-#openssl pkcs8 -topk8 -nocrypt -in "$PANDA_SSL_EC_KEY_PATH" -out "$PANDA_SSL_KEY_PATH"
+openssl ecparam -genkey -name prime256v1 -out "$PANDA_SSL_EC_KEY_PATH"
+openssl pkcs8 -topk8 -nocrypt -in "$PANDA_SSL_EC_KEY_PATH" -out "$PANDA_SSL_KEY_PATH"
 
-openssl ecparam -genkey -name prime256v1 -out "$PANDA_SSL_KEY_PATH"
+#openssl ecparam -genkey -name prime256v1 -out "$PANDA_SSL_KEY_PATH"
 openssl pkey -in "$PANDA_SSL_KEY_PATH" -pubout -out "$PANDA_SSL_PUBKEY_PATH"
 
 echo "Generated random keys"
