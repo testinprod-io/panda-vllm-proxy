@@ -8,17 +8,14 @@ from .logger import log
 class Settings(BaseSettings):
     # LLM server urls
     VLLM_URL: str
+    VLLM_MODEL_URL: str
     SUMMARIZATION_VLLM_URL: str
 
     # LLM model names
     MODEL_NAME: str
     SUMMARIZATION_MODEL: str | None = None
-    MAX_MODEL_LENGTH: int | None = None
 
     # RAG config
-    MAX_RESULTS: int = 5
-    SEARCH_TIMEOUT: float = 10.0
-    USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     BRAVE_SEARCH_API_KEY: Optional[str] = None
     MILVUS_URI: str
 

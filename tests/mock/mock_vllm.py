@@ -25,6 +25,10 @@ app.add_middleware(
 async def health_check():
     return {"status": "healthy"}
 
+@app.get("/v1/models")
+async def models():
+    return JSONResponse(content={"data": [{"id": "mock-model", "max_model_len": 1000}]})
+
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request):
     logger.info("Received chat completion request")
