@@ -1,4 +1,5 @@
 import json
+import asyncio
 from fastapi.responses import StreamingResponse, JSONResponse
 
 from ...logger import log
@@ -47,11 +48,26 @@ async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse
     # Retrieve web search results in the form of Document objects
     retriever = PandaWebRetriever()
     search_results = await retriever.ainvoke(actual_search_query)
+    if not search_results:
+        log.warning(f"No search results found for user {user_id}.")
+        llm_response = await arequest_llm(payload.model_dump(exclude_none=True), user_id=user_id, use_vector_db=True)
+        if isinstance(llm_response, JSONResponse):
+            return llm_response
+        return create_streaming_response(llm_response)
 
     # Save search results to vector DB
     user_collection_name = get_user_collection_name(user_id)
     milvus_instance = get_milvus_wrapper()
-    milvus_instance.from_documents_for_user(user_collection_name, search_results)
+    
+    # Run the milvus operation
+    loop = asyncio.get_running_loop()
+    from_doc_job = loop.run_in_executor(
+        None, 
+        milvus_instance.from_documents_for_user, 
+        user_collection_name, 
+        search_results
+    )
+    log.info(f"Started job to save search results to vector DB for user {user_id}.")
 
     # Summarize the search results with the LLM
     search_results_str = "\n\n".join([result.page_content for result in search_results])
@@ -69,7 +85,11 @@ async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse
     
     modified_request_body_json_str = json.dumps(augmented_request_dict)
     log.debug(f"Augmented request body for LLM: {modified_request_body_json_str[:500]}...")
-    
+
+    # Wait for the from_doc_job to complete
+    await from_doc_job
+    log.info(f"Successfully saved search results to vector DB for user {user_id}.")
+
     llm_response = await arequest_llm(modified_request_body_json_str, user_id=user_id, use_vector_db=True)
     if isinstance(llm_response, JSONResponse):
         return llm_response

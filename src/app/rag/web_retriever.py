@@ -2,6 +2,7 @@ from typing import List, Optional, Any, Dict
 import json
 from pydantic import Field
 import aiohttp
+import asyncio
 
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.documents import Document
@@ -25,6 +26,10 @@ class PandaWebRetriever(BaseRetriever):
         default=2,
         description="Number of search results to return",
     )
+    max_urls_to_process: int = Field(
+        default=5,
+        description="Maximum number of URLs to process to control latency",
+    )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -34,12 +39,14 @@ class PandaWebRetriever(BaseRetriever):
             cls,
             vector_store: Optional[Any] = None,
             num_search_results: int = 1,
+            max_urls_to_process: int = 5,
             text_splitter: Optional[TextSplitter] = None,
             **kwargs,
         ) -> "PandaWebRetriever":
         instance_kwargs = {
             "vector_store": vector_store,
             "num_search_results": num_search_results,
+            "max_urls_to_process": max_urls_to_process,
             **kwargs,
         }
         if text_splitter is not None:
@@ -55,21 +62,36 @@ class PandaWebRetriever(BaseRetriever):
                     query = query[:-1]
         return query.strip()
 
-    def multi_search_result(self, query: str) -> List[Document]:
+    async def multi_search_result(self, query: str) -> List[Document]:
         query = self.clean_search_query(query)
         
-        search_items: List[Dict[str, str]] = []
-        search_items.extend(self.search_ddg(query))
-        brave_results_list = self.search_brave(query)
-        if brave_results_list:
-             search_items.extend(brave_results_list)
+        # Run searches in parallel using asyncio
+        loop = asyncio.get_running_loop()
+        ddg_task = loop.run_in_executor(None, self.search_ddg, query)
+        brave_task = loop.run_in_executor(None, self.search_brave, query)
         
-        log.debug(f"Combined search items from DDG and Brave: {search_items}")
+        # Wait for both searches to complete
+        ddg_results, brave_results = await asyncio.gather(ddg_task, brave_task)
+        
+        # Combine results
+        search_items = []
+        search_items.extend(ddg_results)
+        if brave_results:
+            search_items.extend(brave_results)
+
+        log.info(f"Searched {len(search_items)} items from DDG and Brave")
 
         url_to_look = []
+        seen_urls = set()
         for res in search_items:
             if isinstance(res, dict) and res.get("link"):
-                url_to_look.append(res["link"])
+                url = res["link"]
+                if url not in seen_urls:
+                    seen_urls.add(url)
+                    url_to_look.append(url)
+                    if len(url_to_look) >= self.max_urls_to_process:
+                        log.info(f"Reached max URLs limit ({self.max_urls_to_process}), stopping URL collection")
+                        break
             else:
                 log.warning(f"Search result item skipped (not a dict or no link): {res}")
         
@@ -86,18 +108,39 @@ class PandaWebRetriever(BaseRetriever):
                 # To avoid 400 error due to cookie size
                 "max_line_size": 16384,
                 "max_field_size": 16384,
-                "timeout": timeout
+                "timeout": timeout,
             }
         )
-        html2text = Html2TextTransformer()
         
-        docs = loader.load()
+        docs = await loader.aload()
+        log.info(f"Loaded {len(docs)} documents")
         if not docs:
             log.warning(f"AsyncHtmlLoader returned no documents for URLs: {url_to_look}")
             return []
-        docs = list(html2text.transform_documents(docs))
-        docs = self.text_splitter.split_documents(docs)
-            
+        
+        # Transform documents in parallel using asyncio
+        html2text = Html2TextTransformer()
+        
+        # Process document transformation in batches using thread pool
+        batch_size = max(1, len(docs) // 3)
+        doc_batches = [docs[i:i + batch_size] for i in range(0, len(docs), batch_size)]
+        
+        # Create tasks for parallel processing
+        transform_tasks = []
+        for batch in doc_batches:
+            task = loop.run_in_executor(None, html2text.transform_documents, batch)
+            transform_tasks.append(task)
+        
+        # Wait for all transformations to complete
+        batch_results = await asyncio.gather(*transform_tasks)
+        
+        # Flatten the results
+        transformed_docs = []
+        for batch_result in batch_results:
+            transformed_docs.extend(batch_result)
+
+        docs = self.text_splitter.split_documents(transformed_docs)
+
         log.info(f"Processed documents: {len(docs)} documents")
         return docs
     
@@ -174,7 +217,15 @@ class PandaWebRetriever(BaseRetriever):
         *,
         run_manager: CallbackManagerForRetrieverRun,
     ) -> List[Document]:
-        search_results_docs = self.multi_search_result(query)
+        loop = asyncio.get_event_loop()
+        search_results_docs = loop.run_until_complete(self.multi_search_result(query))
         return search_results_docs
 
-    
+    async def _aget_relevant_documents(
+        self,
+        query: str,
+        *,
+        run_manager: CallbackManagerForRetrieverRun,
+    ) -> List[Document]:
+        search_results_docs = await self.multi_search_result(query)
+        return search_results_docs

@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import asyncio
 
 from ...config import get_settings
 from ...logger import log
@@ -68,16 +69,32 @@ async def call_summarization_llm(text: str, max_tokens_for_final_summary: int) -
         return await _summarize_single_chunk(text_chunks[0], max_tokens_for_final_summary)
     else:
         log.info(f"Text too long, summarizing {len(text_chunks)} chunks iteratively.")
-        chunk_summaries = []
         # Distribute the final desired word count among chunks
         approx_words_per_chunk_summary = max(50, max_tokens_for_final_summary // len(text_chunks))
 
+        # Process all chunks
+        log.info(f"Starting summarization of {len(text_chunks)} chunks...")
+        summarization_tasks = []
         for i, chunk in enumerate(text_chunks):
-            log.info(f"Summarizing chunk {i+1}/{len(text_chunks)}...")
-            # Each chunk summary contributes to the final summary's word count.
-            summary_of_chunk = await _summarize_single_chunk(chunk, approx_words_per_chunk_summary)
-            if summary_of_chunk and not summary_of_chunk.startswith("[Error"):
-                chunk_summaries.append(summary_of_chunk)
+            log.info(f"Creating summarization task for chunk {i+1}/{len(text_chunks)}")
+            task = _summarize_single_chunk(chunk, approx_words_per_chunk_summary)
+            summarization_tasks.append(task)
+        
+        # Wait for all chunk summarizations to complete
+        chunk_summary_results = await asyncio.gather(*summarization_tasks, return_exceptions=True)
+        
+        # Filter successful summaries and handle exceptions
+        chunk_summaries = []
+        for i, result in enumerate(chunk_summary_results):
+            if isinstance(result, Exception):
+                log.error(f"Chunk {i+1} summarization failed with exception: {result}")
+                continue
+            elif result and not result.startswith("[Error"):
+                chunk_summaries.append(result)
+            else:
+                log.warning(f"Chunk {i+1} summarization returned empty or error result: {result}")
+        
+        log.info(f"Completed summarization: {len(chunk_summaries)}/{len(text_chunks)} chunks successful")
         
         if not chunk_summaries:
             log.error("All chunk summarizations failed or returned empty.")
