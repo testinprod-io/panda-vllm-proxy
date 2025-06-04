@@ -8,9 +8,10 @@ import hashlib
 from ...config import get_settings
 from ...logger import log
 from ...prompts.prompts import DEFAULT_SYSTEM_PROMPT, VECTOR_DB_SYSTEM_PROMPT
-from ...dependencies import get_milvus_wrapper
+from ...dependencies import get_milvus_wrapper, get_reranker
 
 LLMSuccessResponse = Union[Dict[str, Any], List[Any]]
+THRESHOLD = 0.6
 
 async def arequest_llm(request_body: str, stream: bool = True, vllm_url: str = get_settings().VLLM_URL, user_id: str = None, use_vector_db: bool = False) -> Union[httpx.Response, JSONResponse, LLMSuccessResponse]:
     """
@@ -23,7 +24,7 @@ async def arequest_llm(request_body: str, stream: bool = True, vllm_url: str = g
     response: Optional[httpx.Response] = None
 
     # Add system prompt to the request body
-    request_body = add_system_prompt(request_body)
+    request_body = _add_system_prompt(request_body)
 
     # Apply vector DB if enabled
     if use_vector_db:
@@ -89,7 +90,7 @@ def request_llm(request_body: str, stream: bool = True, vllm_url: str = get_sett
     response: Optional[httpx.Response] = None
 
     # Add system prompt to the request body
-    request_body = add_system_prompt(request_body)
+    request_body = _add_system_prompt(request_body)
 
     try:
         headers = { "Content-Type": "application/json" }
@@ -139,7 +140,7 @@ def request_llm(request_body: str, stream: bool = True, vllm_url: str = get_sett
         if client and not client.is_closed and not is_streaming_success:
             client.close()
 
-def add_system_prompt(request_body: str) -> str:
+def _add_system_prompt(request_body: str) -> str:
     """Add a system prompt to the messages."""
     request_body = json.loads(request_body)
     request_body["messages"] = [{"role": "system", "content": DEFAULT_SYSTEM_PROMPT.format(current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))}] + request_body["messages"]
@@ -167,7 +168,26 @@ def _apply_vector_db(request_body: str, user_id: str | None) -> str:
 
     # Get the top 3 most relevant documents
     docs = store_wrapper.similarity_search_for_user(user_collection_name, last_message_content, k=3)
-    docs_str = "\n\n".join([doc.page_content for doc in docs])
+    reranker = get_reranker()
+    reranked_docs = reranker(
+        query=last_message_content,
+        documents=[doc.page_content for doc in docs],
+        top_k=3
+    )
+
+    def _unique_keep_top(results, threshold=0.60, max_docs=3):
+        seen, picked = set(), []
+        for r in sorted(results, key=lambda r: -r.score):
+            doc_key = hash(r.text.strip())          
+            if r.score >= threshold and doc_key not in seen:
+                picked.append(r)
+                seen.add(doc_key)
+            if len(picked) == max_docs:
+                break
+        return picked
+
+    filtered_docs = _unique_keep_top(reranked_docs, threshold=THRESHOLD, max_docs=3)
+    docs_str = "\n\n".join([filtered_doc.text for filtered_doc in filtered_docs])
 
     # Augment the request body with the documents
     if len(docs) > 0:
