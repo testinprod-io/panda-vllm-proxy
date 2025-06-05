@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 from rake_nltk import Rake
 
 from ...logger import log
@@ -14,13 +15,13 @@ settings = get_settings()
 KEYWORD_EXTRACTION_MODEL = settings.SUMMARIZATION_MODEL or settings.MODEL_NAME
 KEYWORD_EXTRACTION_VLLM_URL = settings.SUMMARIZATION_VLLM_URL
 
-async def extract_keywords_llm(query: str, max_keywords: int = 3) -> List[str]:
+async def extract_keywords_llm(query: str) -> List[str]:
     """Helper to extract keywords using LLM."""
-    prompt = EXTRACT_KEYWORDS_PROMPT.format(query=query, max_keywords=max_keywords)
+    prompt = EXTRACT_KEYWORDS_PROMPT.format(query=query, current_date=datetime.now().strftime("%Y-%m-%d"))
     llm = SummarizingLLM(
         model=KEYWORD_EXTRACTION_MODEL,
         vllm_url=KEYWORD_EXTRACTION_VLLM_URL,
-        max_tokens=max_keywords * 10,
+        max_tokens=100,
         temperature=0.1 # Low temperature for deterministic keyword extraction
     )
     try:
@@ -37,8 +38,8 @@ async def extract_keywords_llm(query: str, max_keywords: int = 3) -> List[str]:
                     cleaned_keywords.append(kw)
             
             if cleaned_keywords:
-                log.info(f"LLM extracted keywords for '{query}': {cleaned_keywords[:max_keywords]}")
-                return cleaned_keywords[:max_keywords]
+                log.info(f"LLM extracted keywords for '{query}': {cleaned_keywords}")
+                return cleaned_keywords
     except Exception as e:
         log.error(f"Error during LLM keyword extraction for '{query}': {e}", exc_info=True)
     return []
@@ -58,17 +59,17 @@ def extract_keywords_rake(query: str, max_keywords: int = 5) -> List[str]:
     return []
 
 
-async def extract_keywords_from_query(query: str, max_keywords: int = 5) -> List[str]:
+async def extract_keywords_from_query(query: str) -> List[str]:
     """Extract keywords from a query using LLM. Fallback to RAKE if no keywords are found."""
     if not query.strip():
         return []
 
-    llm_keywords = await extract_keywords_llm(query, max_keywords)
+    llm_keywords = await extract_keywords_llm(query)
     if llm_keywords:
         return llm_keywords
     
     log.warning(f"LLM keyword extraction failed or returned no keywords. Falling back to RAKE.")
-    rake_keywords = extract_keywords_rake(query, max_keywords)
+    rake_keywords = extract_keywords_rake(query)
     return rake_keywords
 
 def augment_messages_with_search(
