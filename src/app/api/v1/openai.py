@@ -27,6 +27,8 @@ async def stream_vllm_response(payload: LLMRequest, user_id: str) -> Response:
 
         response_from_llm = await arequest_llm(modified_request_body_str, stream=should_stream, user_id=user_id, use_vector_db=True)
         
+        log.info(f"User sent request to LLM", extra={"user_id": user_id, "request_type": "text/image"})
+
         if isinstance(response_from_llm, JSONResponse):
             return response_from_llm
         

@@ -75,6 +75,8 @@ async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
         await asyncio.gather(*from_doc_jobs)    
         log.info(f"Successfully saved {len(docs_list)} PDF results to vector DB.")
 
+        log.info(f"User sent request to LLM", extra={"user_id": user_id, "request_type": "pdf"})
+
         llm_response = await arequest_llm(modified_request_body_json_str, user_id=user_id, use_vector_db=True)
         if isinstance(llm_response, JSONResponse):
             return llm_response
