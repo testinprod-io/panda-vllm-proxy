@@ -164,7 +164,18 @@ def _apply_vector_db(request_body: str, user_id: str | None) -> str:
     # Get the last message
     request_body = json.loads(request_body)
     last_message = request_body["messages"][-1]
-    last_message_content = last_message["content"][0]["text"]
+
+    # Extract textual content from the last message.
+    last_message_content: str | None = None
+    for part in last_message.get("content", []):
+        if isinstance(part, dict) and part.get("type") == "text" and "text" in part:
+            last_message_content = part["text"].strip()
+            break
+
+    # If no text part is found, skip vector DB augmentation for this request.
+    if not last_message_content:
+        log.warning("Vector DB augmentation skipped: no text content found in the last message.")
+        return json.dumps(request_body)
 
     # Get the top 3 most relevant documents
     docs = store_wrapper.similarity_search_for_user(user_collection_name, last_message_content, k=3)
@@ -201,5 +212,4 @@ def _apply_vector_db(request_body: str, user_id: str | None) -> str:
             ]
         }
         request_body["messages"] = request_body["messages"][:-1] + [augmented_message] + request_body["messages"][-1:]
-        log.info(f"Augmented request body: {request_body}")
     return json.dumps(request_body)
