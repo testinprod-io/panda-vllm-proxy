@@ -42,7 +42,6 @@ def parse_text_from_pdf(pdf_bytes: bytes) -> List[Document]:
     parser = PyMuPDFParser(
         mode="page",
         pages_delimiter = "\n\f",
-        # TODO: replace this with VLM (Colpali)
         images_parser=RapidOCRBlobParser(),
         extract_tables="markdown"
     )

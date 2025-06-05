@@ -35,13 +35,12 @@ async def _summarize_single_chunk(chunk_text: str, target_word_count_for_chunk: 
     )
     try:
         summary_text = await llm.ainvoke(input=prompt_for_chunk)
-        log.info(f"Summarization LLM response for chunk: {summary_text[:100]}...")
         if not summary_text:
-            log.error(f"LLM call returned empty summary for chunk: {chunk_text[:100]}...")
+            log.error(f"LLM call returned empty summary for chunk")
             return ""
         return summary_text.strip()
     except Exception as e:
-        log.error(f"Error summarizing chunk: {chunk_text[:100]}... Error: {e}", exc_info=True)
+        log.error(f"Error summarizing chunk, Error: {e}", exc_info=True)
         return f"[Error summarizing chunk: {str(e)}]"
 
 async def call_summarization_llm(text: str, max_tokens_for_final_summary: int) -> str:
@@ -65,10 +64,8 @@ async def call_summarization_llm(text: str, max_tokens_for_final_summary: int) -
         return ""
 
     if len(text_chunks) == 1:
-        log.info("Text is short enough, summarizing directly.")
         return await _summarize_single_chunk(text_chunks[0], max_tokens_for_final_summary)
     else:
-        log.info(f"Text too long, summarizing {len(text_chunks)} chunks iteratively.")
         # Distribute the final desired word count among chunks
         approx_words_per_chunk_summary = max(50, max_tokens_for_final_summary // len(text_chunks))
 
@@ -87,12 +84,12 @@ async def call_summarization_llm(text: str, max_tokens_for_final_summary: int) -
         chunk_summaries = []
         for i, result in enumerate(chunk_summary_results):
             if isinstance(result, Exception):
-                log.error(f"Chunk {i+1} summarization failed with exception: {result}")
+                log.error(f"Chunk {i+1} summarization failed with exception")
                 continue
             elif result and not result.startswith("[Error"):
                 chunk_summaries.append(result)
             else:
-                log.warning(f"Chunk {i+1} summarization returned empty or error result: {result}")
+                log.warning(f"Chunk {i+1} summarization returned empty or error result")
         
         log.info(f"Completed summarization: {len(chunk_summaries)}/{len(text_chunks)} chunks successful")
         
@@ -101,11 +98,9 @@ async def call_summarization_llm(text: str, max_tokens_for_final_summary: int) -
             raise HTTPException(status_code=500, detail="Failed to summarize any part of the text.")
 
         combined_summary = "\n\n---\n\n".join(chunk_summaries)
-        log.info(f"Combined summary from {len(chunk_summaries)} chunks.")
 
         # One simple approach if combined_summary is too verbose:
         if len(combined_summary.split()) > max_tokens_for_final_summary * 1.2: # If 20% over target
-            log.info("Combined summary is too long, attempting a final pass to condense.")
             # The max_tokens for this final pass should be the originally requested one.
             condensed_summary = await _summarize_single_chunk(combined_summary, max_tokens_for_final_summary)
             if condensed_summary and not condensed_summary.startswith("[Error"):

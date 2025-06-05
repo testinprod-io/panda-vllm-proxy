@@ -39,15 +39,14 @@ async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse
         raise ValueError("No text content found in the last user message for search action.")
 
     actual_search_query = " ".join(query_text_parts)
-    log.info(f"Extracted search query: {actual_search_query}")
 
     # Extract keywords from the search query
     keywords = await extract_keywords_from_query(actual_search_query)
-    log.info(f"Extracted keywords: {keywords}")
+    keywords = " ".join(keyword for keyword in keywords if keyword)
 
     # Retrieve web search results in the form of Document objects
     retriever = PandaWebRetriever()
-    search_results = await retriever.ainvoke(actual_search_query)
+    search_results = await retriever.ainvoke(keywords)
     if not search_results:
         log.warning(f"No search results found for user {user_id}.")
         llm_response = await arequest_llm(payload.model_dump(exclude_none=True), user_id=user_id, use_vector_db=True)
@@ -67,7 +66,6 @@ async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse
         user_collection_name, 
         search_results
     )
-    log.info(f"Started job to save search results to vector DB for user {user_id}.")
 
     # Summarize the search results with the LLM
     search_results_str = "\n\n".join([result.page_content for result in search_results])
@@ -84,11 +82,12 @@ async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse
     augmented_request_dict.pop("use_search", None)
     
     modified_request_body_json_str = json.dumps(augmented_request_dict)
-    log.debug(f"Augmented request body for LLM: {modified_request_body_json_str[:500]}...")
 
     # Wait for the from_doc_job to complete
     await from_doc_job
-    log.info(f"Successfully saved search results to vector DB for user {user_id}.")
+    log.info(f"Successfully saved search results to vector DB.")
+
+    log.info(f"User sent request to LLM", extra={"user_id": user_id, "request_type": "search"})
 
     llm_response = await arequest_llm(modified_request_body_json_str, user_id=user_id, use_vector_db=True)
     if isinstance(llm_response, JSONResponse):
