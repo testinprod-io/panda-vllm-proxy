@@ -27,6 +27,8 @@ services:
       context: ../..
       dockerfile: docker/local/mock_vllm.Dockerfile
     container_name: mock_vllm
+    ports:
+      - "8001:8001"
     environment:
       - PYTHONUNBUFFERED=1
 
