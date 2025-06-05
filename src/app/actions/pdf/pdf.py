@@ -1,5 +1,6 @@
 import base64
 import json
+import asyncio
 from fastapi.responses import StreamingResponse, JSONResponse
 
 from ...api.helper.request_llm import arequest_llm, get_user_collection_name
@@ -39,19 +40,26 @@ async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
             pdf_bytes = base64.b64decode(pdf_base64_string)
             docs_list.append(parse_text_from_pdf(pdf_bytes))
 
+        # Save parsed results to vector DB
+        user_collection_name = get_user_collection_name(user_id)
+        from_doc_jobs = []
+        milvus_instance = get_milvus_wrapper()
+        for docs in docs_list:
+            loop = asyncio.get_running_loop()
+            from_doc_jobs.append(loop.run_in_executor(
+                None, 
+                milvus_instance.from_documents_for_user, 
+                user_collection_name, 
+                docs
+            ))
+        log.info(f"Started {len(from_doc_jobs)} jobs to save parsed PDF results to vector DB.")
+
         # Summarize the PDF
         parse_results_str = ""
         for docs in docs_list:
             parse_results_str += "\n\n".join([doc.page_content for doc in docs])
         parse_results_str = await call_summarization_llm(parse_results_str, 5000)
         log.info(f"Summarized PDF: {parse_results_str}")
-
-        # Save parsed results to vector DB
-        user_collection_name = get_user_collection_name(user_id)
-        milvus_instance = get_milvus_wrapper()
-        for docs in docs_list:
-            milvus_instance.from_documents_for_user(user_collection_name, docs)
-        log.info(f"Successfully saved parsed PDF results to vector DB for user {user_id}.")
 
         # Augment the request with the parsed results
         augmented_request_dict = payload.model_dump(exclude_none=True) 
@@ -64,6 +72,10 @@ async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
         modified_request_body_json_str = json.dumps(augmented_request_dict)
         log.debug(f"Augmented request body for LLM: {modified_request_body_json_str[:500]}...")
         
+        # Wait for the from_doc_jobs to complete
+        await asyncio.gather(*from_doc_jobs)    
+        log.info(f"Successfully saved parsed PDF results to vector DB for user {user_id}.")
+
         llm_response = await arequest_llm(modified_request_body_json_str, user_id=user_id, use_vector_db=True)
         if isinstance(llm_response, JSONResponse):
             return llm_response
