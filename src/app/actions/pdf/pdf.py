@@ -13,7 +13,7 @@ from ...actions.pdf.utils import (
     clean_message_of_pdf_urls,
     augment_messages_with_pdf,
 )
-from ...milvus import MilvusWrapper
+from ...dependencies import get_milvus_wrapper
 
 async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
     """
@@ -48,9 +48,10 @@ async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
 
         # Save parsed results to vector DB
         user_collection_name = get_user_collection_name(user_id)
+        milvus_instance = get_milvus_wrapper()
         for docs in docs_list:
-            MilvusWrapper().from_documents_for_user(user_collection_name, docs)
-        log.info(f"Saved parsed results to vector DB for user {user_id}.")
+            milvus_instance.from_documents_for_user(user_collection_name, docs)
+        log.info(f"Successfully saved parsed PDF results to vector DB for user {user_id}.")
 
         # Augment the request with the parsed results
         augmented_request_dict = payload.model_dump(exclude_none=True) 

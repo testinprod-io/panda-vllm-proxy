@@ -1,6 +1,7 @@
 from typing import List, Optional, Any, Dict
 import json
 from pydantic import Field
+import aiohttp
 
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.documents import Document
@@ -77,6 +78,7 @@ class PandaWebRetriever(BaseRetriever):
             return []
 
         log.info(f"Attempting to load {len(url_to_look)} URLs")
+        timeout = aiohttp.ClientTimeout(total=10)
         loader = AsyncHtmlLoader(
             url_to_look, 
             ignore_load_errors=True,
@@ -84,6 +86,7 @@ class PandaWebRetriever(BaseRetriever):
                 # To avoid 400 error due to cookie size
                 "max_line_size": 16384,
                 "max_field_size": 16384,
+                "timeout": timeout
             }
         )
         html2text = Html2TextTransformer()
