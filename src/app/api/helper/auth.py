@@ -4,14 +4,15 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from ...config import get_settings
+from ...logger import log
 
 limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
 
+# TODO: apply appropriate rate limiting for each user with slowapi
 def verify_authorization_header(request: Request, authorization: str = Header(None)) -> str:
     """
     Verify the JWT token in the Authorization header.
-    If the token is valid, return the decoded token payload.
-    If there's no token, apply rate limiting with slowapi.
+    If the token is valid, return the user id.
     
     Args:
         request: The LLMRequest object
@@ -25,13 +26,13 @@ def verify_authorization_header(request: Request, authorization: str = Header(No
     """
     settings = get_settings()
 
-    jwt_pub_key = settings.JWT_PUB_KEY
+    jwt_pub_key = settings.load_jwt_public_key()
     jwt_algorithm = settings.JWT_ALGORITHM
     app_id = settings.APP_ID
 
     if not authorization or not authorization.startswith("Bearer "):
-        rate_limit(request)
-        return None
+        log.error("No authorization header provided")
+        raise HTTPException(status_code=401, detail="Unauthorized")
   
     token = authorization.split("Bearer ")[1]
     try:
@@ -43,16 +44,9 @@ def verify_authorization_header(request: Request, authorization: str = Header(No
             algorithms=[jwt_algorithm],
             options={"verify_exp": True}
         )
-        return payload
+        return payload["sub"]
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError as e:
+        log.error(f"Invalid token: {str(e)}")
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
-
-@limiter.limit("3/minute")
-def rate_limit(request: Request):
-    """
-    Simple rate limiting function to restrict the number of requests per minute 
-    for non-authenticated users. Dependency will act as a rate limiter.
-    """
-    return True

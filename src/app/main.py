@@ -2,15 +2,26 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import nltk
+
 from .api import router as api_router
 from .api.response.response import ok, error, unexpect_error
 from .logger import log
 from .dependencies import get_cors_origins
 from .middleware import prove_server_identity
-import nltk
+from .config import get_settings
+from .milvus import MilvusWrapper
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Clear LRU cache for settings at startup
+    get_settings.cache_clear()
+    log.info("Cleared LRU cache for get_settings() at startup.")
+
+    # Initialize embedding model for Milvus
+    # This loads the model, which is cached for future use
+    MilvusWrapper()
+
     # Download NLTK resources, used for keyword extraction at RAG
     nltk.download("stopwords", quiet=True)
     nltk.download("punkt", quiet=True)

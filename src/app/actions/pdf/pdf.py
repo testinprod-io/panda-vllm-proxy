@@ -2,7 +2,7 @@ import base64
 import json
 from fastapi.responses import StreamingResponse, JSONResponse
 
-from ...api.helper.request_llm import arequest_llm
+from ...api.helper.request_llm import arequest_llm, get_user_collection_name
 from ...api.helper.request_summary import call_summarization_llm
 from ...api.helper.streaming import create_streaming_response
 from ...logger import log
@@ -13,8 +13,9 @@ from ...actions.pdf.utils import (
     clean_message_of_pdf_urls,
     augment_messages_with_pdf,
 )
+from ...milvus import MilvusWrapper
 
-async def pdf_handler(payload: LLMRequest) -> StreamingResponse:
+async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
     """
     Handles requests containing PDF data, now expecting an LLMRequest object.
     Extracts text for RAG or converts to images.
@@ -27,6 +28,7 @@ async def pdf_handler(payload: LLMRequest) -> StreamingResponse:
     if len(pdf_base64_list) == 0:
         log.warning("No PDF found in the last message.")
         raise ValueError("No PDF found in the last message.")
+
     # Exclude the PDF from the messages
     payload.messages[-1] = clean_message_of_pdf_urls(payload.messages[-1])
 
@@ -44,8 +46,13 @@ async def pdf_handler(payload: LLMRequest) -> StreamingResponse:
         parse_results_str = await call_summarization_llm(parse_results_str, 5000)
         log.info(f"Summarized PDF: {parse_results_str}")
 
+        # Save parsed results to vector DB
+        user_collection_name = get_user_collection_name(user_id)
+        for docs in docs_list:
+            MilvusWrapper().from_documents_for_user(user_collection_name, docs)
+        log.info(f"Saved parsed results to vector DB for user {user_id}.")
+
         # Augment the request with the parsed results
-        # TODO: apply vector DB
         augmented_request_dict = payload.model_dump(exclude_none=True) 
         original_messages_dicts = [msg.model_dump(exclude_none=True) for msg in payload.messages]
         
@@ -56,7 +63,7 @@ async def pdf_handler(payload: LLMRequest) -> StreamingResponse:
         modified_request_body_json_str = json.dumps(augmented_request_dict)
         log.debug(f"Augmented request body for LLM: {modified_request_body_json_str[:500]}...")
         
-        llm_response = await arequest_llm(modified_request_body_json_str)
+        llm_response = await arequest_llm(modified_request_body_json_str, user_id=user_id, use_vector_db=True)
         if isinstance(llm_response, JSONResponse):
             return llm_response
         

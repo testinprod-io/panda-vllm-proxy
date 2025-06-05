@@ -2,20 +2,15 @@ import json
 from fastapi.responses import StreamingResponse, JSONResponse
 
 from ...logger import log
-from ...api.helper.request_llm import arequest_llm
+from ...api.helper.request_llm import arequest_llm, get_user_collection_name
 from ...api.helper.request_summary import call_summarization_llm
 from ...api.helper.streaming import create_streaming_response
 from .utils import augment_messages_with_search, extract_keywords_from_query
-from ...config import get_settings
 from ...api.v1.models import LLMRequest, TextContent, SenderTypeEnum 
 from ...rag import PandaWebRetriever
+from ...milvus import MilvusWrapper
 
-settings = get_settings()
-MAX_RESULTS = settings.MAX_RESULTS
-SUMMARIZATION_MODEL = settings.SUMMARIZATION_MODEL or settings.MODEL_NAME
-SUMMARIZATION_VLLM_URL = settings.SUMMARIZATION_VLLM_URL
-
-async def search_handler(payload: LLMRequest) -> StreamingResponse:
+async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
     """
     Handle search functionality by augmenting the request with search results.
     
@@ -31,8 +26,8 @@ async def search_handler(payload: LLMRequest) -> StreamingResponse:
         log.warning("No user message found in LLMRequest for search.")
         raise ValueError("No user message found in the request for search action.")
     
-    last_user_chat_message = user_chat_messages[-1]
     # Extract text from content parts
+    last_user_chat_message = user_chat_messages[-1]
     query_text_parts = []
     for content_part in last_user_chat_message.content:
         if isinstance(content_part, TextContent):
@@ -53,12 +48,16 @@ async def search_handler(payload: LLMRequest) -> StreamingResponse:
     retriever = PandaWebRetriever()
     search_results = await retriever.ainvoke(actual_search_query)
 
+    # Save search results to vector DB
+    user_collection_name = get_user_collection_name(user_id)
+    MilvusWrapper().from_documents_for_user(user_collection_name, search_results)
+    log.info(f"Saved search results to vector DB for user {user_id}.")
+
     # Summarize the search results with the LLM
     search_results_str = "\n\n".join([result.page_content for result in search_results])
     search_results_str = await call_summarization_llm(search_results_str, 1000)
 
     # Augment the request with the search results
-    # TODO: apply vector DB
     augmented_request_dict = payload.model_dump(exclude_none=True) 
     original_messages_dicts = [msg.model_dump(exclude_none=True) for msg in payload.messages]
 
@@ -71,7 +70,7 @@ async def search_handler(payload: LLMRequest) -> StreamingResponse:
     modified_request_body_json_str = json.dumps(augmented_request_dict)
     log.debug(f"Augmented request body for LLM: {modified_request_body_json_str[:500]}...")
     
-    llm_response = await arequest_llm(modified_request_body_json_str)
+    llm_response = await arequest_llm(modified_request_body_json_str, user_id=user_id, use_vector_db=True)
     if isinstance(llm_response, JSONResponse):
         return llm_response
 

@@ -163,3 +163,9 @@ cython_debug/
 .DS_Store
 
 .ruff_cache
+
+# Milvus
+docker/local/volumes/
+
+# key
+jwt_pub.pem
