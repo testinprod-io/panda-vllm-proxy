@@ -10,7 +10,6 @@ services:
     env_file:
       - .env.deepseek
     volume:
-      - ./jwt_pub.pem:/app/jwt_pub.pem
       - ./cert.pem:/tmp/cert/cert.pem
       - ./key.pem:/tmp/cert/key.pem
     depends_on:
@@ -27,7 +26,6 @@ services:
     env_file:
       - .env.llama
     volume:
-      - ./jwt_pub.pem:/app/jwt_pub.pem
       - ./cert.pem:/tmp/cert/cert.pem
       - ./key.pem:/tmp/cert/key.pem
     depends_on:

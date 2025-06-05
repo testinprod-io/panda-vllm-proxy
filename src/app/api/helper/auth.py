@@ -26,7 +26,7 @@ def verify_authorization_header(request: Request, authorization: str = Header(No
     """
     settings = get_settings()
 
-    jwt_pub_key = settings.load_jwt_public_key()
+    jwt_pub_key = settings.JWT_PUB_KEY
     jwt_algorithm = settings.JWT_ALGORITHM
     app_id = settings.APP_ID
 
