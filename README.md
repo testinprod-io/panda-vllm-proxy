@@ -7,28 +7,21 @@ A proxy for vLLM.
 ### 1. Create and activate virtual environment
 
 ```bash
-# Create virtual environment
-python -m venv venv
+# Create virtual environment using specific Python version
+poetry env use 3.11.12
 
 # Activate virtual environment
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ### 2. Install dependencies
 
 ```bash
 # Install development dependencies
-pip install
+poetry install
 ```
 
-### 3-1. Run for production
-
-```bash
-cd docker
-docker compose up -d
-```
-
-### 3-2. Run for local development
+### 3. Run for local development
 
 ```bash
 # Run local mock vllm
