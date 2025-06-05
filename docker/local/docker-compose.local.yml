@@ -16,7 +16,7 @@ services:
       - SUMMARIZATION_VLLM_URL=http://mock_vllm:8001
       - MODEL_NAME=MOCK_VLLM
       - JWT_ALGORITHM=ES256
-      - JWT_PUB_KEY_FILE=""
+      - JWT_PUB_KEY=""
       - APP_ID=""
       - TLS_CERT_PATH=/tmp/cert/cert.pem
       - TLS_CERT_PRIVATE_KEY_PATH=/tmp/cert/key.pem

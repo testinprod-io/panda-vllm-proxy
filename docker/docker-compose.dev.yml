@@ -16,7 +16,6 @@ services:
     container_name: vllm-proxy
     privileged: true
     volume:
-      - ../jwt_pub.pem:/app/jwt_pub.pem
       - ./local/cert.pem:/tmp/cert/cert.pem
       - ./local/key.pem:/tmp/cert/key.pem
     ports:
