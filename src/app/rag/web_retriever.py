@@ -93,7 +93,7 @@ class PandaWebRetriever(BaseRetriever):
                         log.info(f"Reached max URLs limit ({self.max_urls_to_process}), stopping URL collection")
                         break
             else:
-                log.warning(f"Search result item skipped (not a dict or no link): {res}")
+                log.warning(f"Search result item skipped (not a dict or no link)")
         
         if not url_to_look:
             log.warning(f"No URLs found to load")
@@ -115,7 +115,7 @@ class PandaWebRetriever(BaseRetriever):
         docs = await loader.aload()
         log.info(f"Loaded {len(docs)} documents")
         if not docs:
-            log.warning(f"AsyncHtmlLoader returned no documents for URLs: {url_to_look}")
+            log.warning(f"AsyncHtmlLoader returned no documents for URLs")
             return []
         
         # Transform documents in parallel using asyncio
@@ -178,10 +178,9 @@ class PandaWebRetriever(BaseRetriever):
 
             if not isinstance(brave_search_output_str, str):
                 if isinstance(brave_search_output_str, list) and all(isinstance(item, dict) for item in brave_search_output_str):
-                    log.debug(f"Brave search returned structured data directly: {brave_search_output_str}")
                     return [r for r in brave_search_output_str if r.get("link")]
                 else:
-                    log.error(f"Brave search returned unexpected type: {type(brave_search_output_str)}. Output: {brave_search_output_str}")
+                    log.error(f"Brave search returned unexpected type: {type(brave_search_output_str)}.")
                     return []
 
             # Format the output to be a list of dictionaries
@@ -200,12 +199,12 @@ class PandaWebRetriever(BaseRetriever):
                         "snippet": r_item.get("snippet", "")
                     })
                 else:
-                    log.warning(f"Skipping non-dict item in Brave search results: {r_item}")
+                    log.warning(f"Skipping non-dict item in Brave search results")
             
             return [r for r in formatted_results if r.get("link")]
 
         except json.JSONDecodeError as e:
-            log.error(f"Error decoding JSON from Brave search: {e}. Raw response: {brave_search_output_str}", exc_info=True)
+            log.error(f"Error decoding JSON from Brave search: {e}.", exc_info=True)
             return []
         except Exception as e:
             log.error(f"Error during Brave search: {e}", exc_info=True)
