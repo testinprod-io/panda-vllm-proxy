@@ -1,9 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import Optional
-import pathlib
-
-from .logger import log
 
 class Settings(BaseSettings):
     # LLM server urls
@@ -21,7 +18,7 @@ class Settings(BaseSettings):
 
     # JWT config
     JWT_ALGORITHM: str
-    JWT_PUB_KEY_FILE: str
+    JWT_PUB_KEY: str
     APP_ID: str
 
     # CORS config
@@ -34,12 +31,6 @@ class Settings(BaseSettings):
         env_file=".env",
         case_sensitive=True
     )
-
-    def load_jwt_public_key(self) -> bytes:
-        """Read the PEM file and return raw bytes."""
-        file_path = pathlib.Path(self.JWT_PUB_KEY_FILE).expanduser()
-        with file_path.open("rb") as f:
-            return f.read()
 
 @lru_cache()
 def get_settings() -> Settings:
