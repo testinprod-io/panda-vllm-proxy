@@ -7,6 +7,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        build-essential=12.9 \
        curl=7.88.1-10+deb12u12 \
+       zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # upgrade pip & install Poetry

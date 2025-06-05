@@ -8,7 +8,7 @@ from ...logger import log
 
 limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
 
-# TODO: apply appropriate rate limiting for each user with slowapi
+@limiter.limit("10/minute")
 def verify_authorization_header(request: Request, authorization: str = Header(None)) -> str:
     """
     Verify the JWT token in the Authorization header.
