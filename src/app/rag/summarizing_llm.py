@@ -100,10 +100,10 @@ class SummarizingLLM(LLM):
                     run_manager.on_llm_new_token(generated_text)
                 return generated_text
             else:
-                log.error(f"Could not extract content from vLLM response. Choices: {parsed_response.choices}")
+                log.error(f"Could not extract content from vLLM response.")
                 raise ValueError("Could not extract content from vLLM response.")
         except (AttributeError, IndexError, KeyError, TypeError) as e:
-            log.error(f"Error parsing LLMSuccessResponse: {e}. Response data: {response_data}")
+            log.error(f"Error parsing LLMSuccessResponse: {e}")
             raise ValueError(f"Error parsing successful vLLM response: {e}")
 
     def _stream(

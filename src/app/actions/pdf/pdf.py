@@ -59,7 +59,7 @@ async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
         for docs in docs_list:
             parse_results_str += "\n\n".join([doc.page_content for doc in docs])
         parse_results_str = await call_summarization_llm(parse_results_str, 5000)
-        log.info(f"Summarized PDF: {parse_results_str}")
+        log.info(f"Summarized PDF with LLM.")
 
         # Augment the request with the parsed results
         augmented_request_dict = payload.model_dump(exclude_none=True) 
@@ -70,11 +70,10 @@ async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
         )
         
         modified_request_body_json_str = json.dumps(augmented_request_dict)
-        log.debug(f"Augmented request body for LLM: {modified_request_body_json_str[:500]}...")
         
         # Wait for the from_doc_jobs to complete
         await asyncio.gather(*from_doc_jobs)    
-        log.info(f"Successfully saved parsed PDF results to vector DB for user {user_id}.")
+        log.info(f"Successfully saved {len(docs_list)} PDF results to vector DB.")
 
         llm_response = await arequest_llm(modified_request_body_json_str, user_id=user_id, use_vector_db=True)
         if isinstance(llm_response, JSONResponse):

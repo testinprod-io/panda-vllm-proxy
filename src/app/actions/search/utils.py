@@ -26,7 +26,6 @@ async def extract_keywords_llm(query: str) -> List[str]:
     )
     try:
         response_text = await llm.ainvoke(input=prompt)
-        log.debug(f"LLM response for keyword extraction ('{query}'): {response_text}")
         if response_text:
             # Simple comma separation, stripping whitespace
             keywords = [kw.strip() for kw in response_text.split(',') if kw.strip()]
@@ -38,10 +37,9 @@ async def extract_keywords_llm(query: str) -> List[str]:
                     cleaned_keywords.append(kw)
             
             if cleaned_keywords:
-                log.info(f"LLM extracted keywords for '{query}': {cleaned_keywords}")
                 return cleaned_keywords
     except Exception as e:
-        log.error(f"Error during LLM keyword extraction for '{query}': {e}", exc_info=True)
+        log.error(f"Error during LLM keyword extraction: {e}", exc_info=True)
     return []
 
 def extract_keywords_rake(query: str, max_keywords: int = 5) -> List[str]:
