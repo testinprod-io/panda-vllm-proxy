@@ -52,3 +52,9 @@ Summarize the following text in approximately {target_word_count} words:
 text: {text_to_summarize}
 """
 
+VECTOR_DB_SYSTEM_PROMPT = """
+Here are the top {doc_count} most relevant documents for the user:
+{docs_str}
+
+Use these documents to answer the user's question.
+"""
