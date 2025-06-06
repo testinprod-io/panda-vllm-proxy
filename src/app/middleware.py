@@ -10,6 +10,8 @@ from .logger import log
 
 
 CHALLENGE_HEADER = "Panda-Challenge"
+PUBLIC_KEY_HEADER = "Panda-Public-Key"
+SIGNATURE_HEADER = "Panda-Signature"
 AUTH_HEADER = "Authorization"
 
 private_key = None
@@ -41,7 +43,7 @@ async def prove_server_identity(request: Request, call_next):
         log.warn("No private key provided. skipping cert signing")
         return resp
 
-    resp.headers["Panda-Public_Key"] = hex_public_key
+    resp.headers[PUBLIC_KEY_HEADER] = hex_public_key
 
     challenge = request.headers.get(CHALLENGE_HEADER)
     if challenge is None or challenge == "":
@@ -50,5 +52,5 @@ async def prove_server_identity(request: Request, call_next):
             log.info("No challenge of auth header. skipping cert signing")
             return resp
 
-    resp.headers["Panda-Signature"] = private_key.sign(challenge.encode("utf-8"), ec.ECDSA(hashes.SHA256())).hex()
+    resp.headers[SIGNATURE_HEADER] = private_key.sign(challenge.encode("utf-8"), ec.ECDSA(hashes.SHA256())).hex()
     return resp
