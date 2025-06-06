@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-image:
-    runs-on: ubuntu-22.04-8core
+    runs-on: ubuntu-latest
 
     permissions:
       contents: read
@@ -16,6 +16,12 @@ jobs:
 
     name: build-image
     steps:
+      - uses: easimon/maximize-build-space@v10
+        with:
+          root-reserve-mb: 4096
+          remove-android: true
+          remove-dotnet: true
+          remove-haskell: true
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
