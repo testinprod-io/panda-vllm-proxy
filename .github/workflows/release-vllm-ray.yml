@@ -65,5 +65,5 @@ jobs:
           images+="index.docker.io/testinprod/panda-vllm-ray@${DIGEST}"
           cosign sign --yes --annotations git-commit=${{ github.sha }} ${images}
           cosign verify ${images} \
-          --certificate-identity=https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/${{ github.ref_name }} \
+          --certificate-identity=https://github.com/${{ github.repository }}/.github/workflows/release-vllm-ray.yml@refs/tags/${{ github.ref_name }} \
           --certificate-oidc-issuer=https://token.actions.githubusercontent.com
