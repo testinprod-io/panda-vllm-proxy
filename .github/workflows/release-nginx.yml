@@ -46,8 +46,8 @@ jobs:
         uses: docker/build-push-action@v6
         id: build-and-push
         with:
-          file: docker/Dockerfile
-          context: .
+          file: docker/nginx/Dockerfile
+          context: docker/nginx
           platforms: linux/amd64
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
