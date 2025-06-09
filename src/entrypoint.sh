@@ -3,6 +3,13 @@ set -e
 
 sleep 60
 
+if [ -n "$HF_HOME" ]; then
+  if [ ! -d "$HF_HOME" ]; then
+    mkdir -p "$HF_HOME"
+    echo "Created directory: $HF_HOME"
+  fi
+fi
+
 : "${WORKERS:=1}"
 : "${HOST:=0.0.0.0}"
 : "${PORT:=8000}"
