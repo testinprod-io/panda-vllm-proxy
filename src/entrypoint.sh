@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+sleep 60
+
 : "${WORKERS:=1}"
 : "${HOST:=0.0.0.0}"
 : "${PORT:=8000}"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+sleep 60
 
 required_vars=(
   PANDA_LLM_DOMAIN
