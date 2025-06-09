@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_milvus import Milvus
 from langchain.docstore.document import Document
@@ -10,10 +13,15 @@ class MilvusWrapper:
     milvus_collection : Milvus = None
 
     def __init__(self):
+        pid = os.getpid()
+        cache_dir = os.path.join(os.environ["HF_HOME"], str(pid))
+        Path(cache_dir).mkdir(parents=True, exist_ok=True)
+
         self.embeddings = HuggingFaceEmbeddings(
             model_name="BAAI/bge-large-en-v1.5",
             model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": False}
+            encode_kwargs={"normalize_embeddings": False},
+            cache_folder=cache_dir,
         )
         self.milvus_collection = Milvus(
             embedding_function=self.embeddings,
