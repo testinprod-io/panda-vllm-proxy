@@ -54,6 +54,7 @@ HEX_KEY_HASH=$(echo -n $HEX_KEY | xxd -r -p | sha256sum | awk '{print $1}')
 
 MAX_RETRIES=60
 RETRY_INTERVAL=2
+RETRIES=0
 while [ $RETRIES -lt $MAX_RETRIES ]; do
   RESPONSE=$(curl --silent --show-error --unix-socket /var/run/dstack.sock \
             --write-out "HTTPSTATUS:%{http_code}" "http://localhost/GetQuote?report_data=0x${HEX_KEY_HASH}")
