@@ -66,4 +66,7 @@ echo "Registered attestation quote"
 
 certbot renew --once -c /etc/certbot/certbot.toml
 
+/wait-for-it.sh vllm-proxy-deepseek:8000 --timeout=60 --strict -- \
+/wait-for-it.sh vllm-proxy-llama:8000 --timeout=60 --strict -- \
+
 exec nginx -c /etc/nginx/nginx.conf -g 'daemon off;'
