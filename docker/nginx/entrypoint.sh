@@ -60,7 +60,7 @@ while [ $RETRIES -lt $MAX_RETRIES ]; do
             --write-out "HTTPSTATUS:%{http_code}" "http://localhost/GetQuote?report_data=0x${HEX_KEY_HASH}")
 
   HTTP_CODE=$(echo "$RESPONSE" | tr -d '\r' | sed -n 's/.*HTTPSTATUS:\([0-9]*\)$/\1/p')
-  QUOTE_REGISTER_REQUEST=$(echo "$RESPONSE" | sed 's/HTTPSTATUS\:.*//g')
+  QUOTE_RESPONSE=$(echo "$RESPONSE" | sed 's/HTTPSTATUS\:.*//g')
 
   if [ "$HTTP_CODE" = "200" ]; then
     echo "Request succeeded with HTTP 200"
@@ -75,6 +75,10 @@ if [ $RETRIES -eq $MAX_RETRIES ]; then
   echo "Failed: reached max retries ($MAX_RETRIES)"
   exit 1
 fi
+
+QUOTE_REGISTER_REQUEST=$(echo "$QUOTE_RESPONSE" \
+  | jq --arg hex "$HEX_KEY" \
+       'del(.report_data) | .public_key = $hex')
 
 curl --fail -X POST "$PANDA_APP_SERVER/admin/tdxQuotes" \
      -H "Content-Type: application/json" \
