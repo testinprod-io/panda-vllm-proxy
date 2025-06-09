@@ -1,3 +1,6 @@
+import os
+import time
+
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization, hashes
@@ -13,6 +16,7 @@ CHALLENGE_HEADER = "Panda-Challenge"
 PUBLIC_KEY_HEADER = "Panda-Public-Key"
 SIGNATURE_HEADER = "Panda-Signature"
 AUTH_HEADER = "Authorization"
+MAX_RETRIES = 20
 
 private_key = None
 hex_public_key = ""
@@ -21,6 +25,14 @@ settings = get_settings()
 if settings.TLS_CERT_PRIVATE_KEY_PATH is None or settings.TLS_CERT_PATH is None:
     log.warn("No cert path provided. will skip cert signing")
 else:
+    for attempt in range(MAX_RETRIES):
+        if os.path.exists(settings.TLS_CERT_PRIVATE_KEY_PATH) and os.path.exists(settings.TLS_CERT_PATH):
+            break
+        log.info(f"Cert file not found. Retrying ({attempt + 1}/{MAX_RETRIES})...")
+        time.sleep(3)
+    else:
+        raise Exception("Unable to find cert file")
+
     with open(settings.TLS_CERT_PRIVATE_KEY_PATH, "rb") as f:
         priv_pem = f.read()
     private_key = serialization.load_pem_private_key(priv_pem, password=None)
