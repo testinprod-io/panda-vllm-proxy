@@ -1,86 +1,154 @@
+volumes:
+  shared-tmpfs:
+    driver: local
+    driver_opts:
+      type: "tmpfs"
+      device: "tmpfs"
+      o: "size=64m"
+
 services:
+  nginx:
+    image: testinprod/panda-nginx:0.0.1-test9
+    container_name: nginx
+    ports:
+      - "443:443"
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - shared-tmpfs:/cert-dir
+    environment:
+      - PANDA_LLM_DOMAIN=panda-llm-test.yolkie.xyz
+      - PANDA_LLM_CERT_DOMAINS=["panda-llm-test.yolkie.xyz", "nil5.yolkie.xyz"]
+      - PANDA_CERT_DIR=/cert-dir
+      - PANDA_ACME_URL=https://acme-v02.api.letsencrypt.org/directory
+      - PANDA_CF_API_TOKEN=${PANDA_CF_API_TOKEN}
+      - PANDA_CF_ZONE_ID=${PANDA_CF_ZONE_ID}
+      - PANDA_APP_SERVER=https://app.staging.panda.chat
+      - PANDA_APP_SERVER_TOKEN=${PANDA_APP_SERVER_TOKEN}
+
   vllm-proxy-deepseek:
-    image: smstack/vllm-proxy:v0.2.0-rc3
+    image: testinprod/panda-vllm-proxy:0.0.1-test6
     container_name: vllm-proxy-deepseek
     privileged: true
     ports:
-      - "8000:8000"  # HTTP port
+      - "8000:8000"
+    volumes:
+      - shared-tmpfs:/cert-dir
+      - /var/volatile/dstack/persistent:/data
     environment:
-      - WORKERS=4
-    env_file:
-      - .env.deepseek
-    volume:
-      - ./cert.pem:/tmp/cert/cert.pem
-      - ./key.pem:/tmp/cert/key.pem
+      JWT_PUB_KEY: |
+        -----BEGIN PUBLIC KEY-----
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGvGT/EO1yLDOEJjADoeL2xAnSB8Bxh4ycukEkMpd5M5SD9GT1Pqrxj5nGM5bQ/TPz35qduZLMzF3EGhx8CqG6A==
+        -----END PUBLIC KEY-----
+      WORKERS: 4
+      VLLM_URL: http://vllm-deepseek:8000/v1/chat/completions
+      VLLM_MODEL_URL: http://vllm-deepseek:8000/v1/models
+      SUMMARIZATION_VLLM_URL: http://vllm-llama:8000/v1/chat/completions
+      MODEL_NAME: ig1/r1-1776-AWQ
+      SUMMARIZATION_MODEL: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
+      MAX_MODEL_LENGTH: 65536
+      JWT_ALGORITHM: ES256
+      APP_ID: cm9i6pezy041iif0npn86ctjt
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
+      MILVUS_URI: http://standalone:19530
+      CORS_ALLOWED_ORIGINS: "[\"*\"]"
+      TLS_CERT_PATH: /cert-dir/live/cert.pem
+      TLS_CERT_PRIVATE_KEY_PATH: /cert-dir/live/key.pem
+      HF_HOME: /tmp/huggingface/deepseek
     depends_on:
       - vllm-deepseek
 
   vllm-proxy-llama:
-    image: smstack/vllm-proxy:v0.2.0-rc3
+    image: testinprod/panda-vllm-proxy:0.0.1-test6
     container_name: vllm-proxy-llama
     privileged: true
     ports:
-      - "8001:8000"  # HTTP port
+      - "8001:8000"
+    volumes:
+      - shared-tmpfs:/cert-dir
+      - /var/volatile/dstack/persistent:/data
     environment:
-      - WORKERS=4
-    env_file:
-      - .env.llama
-    volume:
-      - ./cert.pem:/tmp/cert/cert.pem
-      - ./key.pem:/tmp/cert/key.pem
+      JWT_PUB_KEY: |
+        -----BEGIN PUBLIC KEY-----
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGvGT/EO1yLDOEJjADoeL2xAnSB8Bxh4ycukEkMpd5M5SD9GT1Pqrxj5nGM5bQ/TPz35qduZLMzF3EGhx8CqG6A==
+        -----END PUBLIC KEY-----
+      WORKERS: 4
+      VLLM_URL: http://vllm-llama:8000/v1/chat/completions
+      VLLM_MODEL_URL: http://vllm-llama:8000/v1/models
+      SUMMARIZATION_VLLM_URL: http://vllm-llama:8000/v1/chat/completions
+      MODEL_NAME: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
+      SUMMARIZATION_MODEL: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
+      JWT_ALGORITHM: ES256
+      APP_ID: cm9i6pezy041iif0npn86ctjt
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
+      MILVUS_URI: http://standalone:19530
+      CORS_ALLOWED_ORIGINS: "[\"*\"]"
+      TLS_CERT_PATH: /cert-dir/live/cert.pem
+      TLS_CERT_PRIVATE_KEY_PATH: /cert-dir/live/key.pem
+      HF_HOME: /tmp/huggingface/llama
     depends_on:
       - vllm-llama
 
   vllm-deepseek:
-    image: vllm/vllm-openai:v0.8.5
+    image: testinprod/panda-vllm-ray:0.0.1-test3
     container_name: vllm-deepseek
     runtime: nvidia
     ports:
       - "8002:8000"
-    volumes:
-      - /mnt:/mnt
     deploy:
       resources:
         reservations:
           devices:
-            - capabilities: [gpu]
-              device_ids: ["0","1","2","3","4","5","6"]
-    shm_size: "8g"
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ "0","1","2","3","4","5","6" ]
+    volumes:
+      - /var/volatile/dstack/persistent:/data
+    shm_size: "32g"
+    entrypoint: ["/bin/sh", "-c", "sleep 60 && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
     command: >
       --model ig1/r1-1776-AWQ
       --dtype auto
       --tensor-parallel-size 1
       --pipeline-parallel-size 7
-      --gpu-memory-utilization 0.98
+      --gpu-memory-utilization 0.95
       --enable-chunked-prefill
       --enable-reasoning  
       --reasoning-parser deepseek_r1  
       --max-model-len 65536
+      --download-dir /data/vllm-deepseek
+      --distributed-executor-backend ray
     environment:
-      - CUDA_VISIBLE_DEVICE=0,1,2,3,4,5,6
+      - OMP_NUM_THREADS=16
+      - LLM_USE_V1=1
+      - HF_TOKEN=${HF_TOKEN}
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
 
   vllm-llama:
-    image: vllm/vllm-openai:v0.8.5
+    image: testinprod/panda-vllm-ray:0.0.1-test3
     container_name: vllm-llama
     runtime: nvidia
     ports:
       - "8003:8000"
     volumes:
-      - /mnt:/mnt
+      - /var/volatile/dstack/persistent:/data
     deploy:
       resources:
         reservations:
           devices:
-            - capabilities: [gpu]
-              device_ids: ["7"]
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ "7" ]
+    entrypoint: ["/bin/sh", "-c", "sleep 60 && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
     command: >
       --model RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       --dtype auto
       --max-model-len 64000
       --kv-cache-dtype fp8
       --gpu-memory-utilization 0.98
+      --download-dir /data/vllm-llama
     environment:
-      - CUDA_VISIBLE_DEVICE=0
+      - HF_TOKEN=${HF_TOKEN}
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
 
   etcd:
     container_name: milvus-etcd
@@ -91,8 +159,8 @@ services:
       - ETCD_QUOTA_BACKEND_BYTES=4294967296
       - ETCD_SNAPSHOT_COUNT=50000
     volumes:
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/etcd:/etcd
-    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+      - /var/volatile/dstack/persistent:/data
+    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /data/etcd
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 30s
@@ -109,8 +177,8 @@ services:
       - "9001:9001"
       - "9000:9000"
     volumes:
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/minio:/minio_data
-    command: minio server /minio_data --console-address ":9001"
+      - /var/volatile/dstack/persistent:/data
+    command: minio server /data/minio --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -128,7 +196,7 @@ services:
       ETCD_ENDPOINTS: etcd:2379
       MINIO_ADDRESS: minio:9000
     volumes:
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus
+      - /var/volatile/dstack/persistent:/var/lib/milvus
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
       interval: 30s
