@@ -18,8 +18,11 @@ class MilvusWrapper:
         self.milvus_collection = Milvus(
             embedding_function=self.embeddings,
             collection_name=self.collection_name,
-            connection_args={"uri": get_settings().MILVUS_URI},
-            collection_properties={"collection.ttl.seconds": 3600},
+            connection_args={
+                "uri": get_settings().MILVUS_URI,
+                "token": f"root:{get_settings().MILVUS_ROOT_PASSWORD}"
+            },
+            collection_properties={"collection.ttl.seconds": 21600},
             auto_id=True,
             drop_old=False,
         )

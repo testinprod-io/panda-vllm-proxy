@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     # RAG config
     BRAVE_SEARCH_API_KEY: Optional[str] = None
     MILVUS_URI: str
+    MILVUS_ROOT_PASSWORD: str
 
     # JWT config
     JWT_ALGORITHM: str
