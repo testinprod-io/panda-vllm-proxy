@@ -46,10 +46,10 @@ openssl pkcs8 -topk8 -nocrypt -in "$PANDA_SSL_EC_KEY_PATH" -out "$PANDA_SSL_KEY_
 #openssl ecparam -genkey -name prime256v1 -out "$PANDA_SSL_KEY_PATH"
 openssl pkey -in "$PANDA_SSL_KEY_PATH" -pubout -out "$PANDA_SSL_PUBKEY_PATH"
 
-echo "Generated random keys"
-
 HEX_KEY=$(openssl pkey -pubin -in "$PANDA_SSL_PUBKEY_PATH" -outform DER \
-  | xxd -p -c 0 | sed -E 's/.*(04[0-9a-f]+)$/\1/')
+  | xxd -p -c 0 | sed -E 's/^.*(04[0-9a-f]{128})$/\1/')
+
+echo "Generated random keys: $HEX_KEY"
 
 HEX_KEY_HASH=$(echo -n $HEX_KEY | xxd -r -p | sha256sum | awk '{print $1}')
 
