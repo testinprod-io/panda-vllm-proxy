@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+sleep 60
 
 required_vars=(
   PANDA_LLM_DOMAIN
@@ -52,7 +53,30 @@ HEX_KEY=$(openssl pkey -pubin -in "$PANDA_SSL_PUBKEY_PATH" -outform DER \
 
 HEX_KEY_HASH=$(echo -n $HEX_KEY | xxd -r -p | sha256sum | awk '{print $1}')
 
-QUOTE_RESPONSE=$(curl --unix-socket /var/run/dstack.sock "http://localhost/GetQuote?report_data=0x${HEX_KEY_HASH}")
+MAX_RETRIES=60
+RETRY_INTERVAL=2
+RETRIES=0
+while [ $RETRIES -lt $MAX_RETRIES ]; do
+  RESPONSE=$(curl --silent --show-error --unix-socket /var/run/dstack.sock \
+            --write-out "HTTPSTATUS:%{http_code}" "http://localhost/GetQuote?report_data=0x${HEX_KEY_HASH}")
+
+  HTTP_CODE=$(echo "$RESPONSE" | tr -d '\r' | sed -n 's/.*HTTPSTATUS:\([0-9]*\)$/\1/p')
+  QUOTE_RESPONSE=$(echo "$RESPONSE" | sed 's/HTTPSTATUS\:.*//g')
+
+  if [ "$HTTP_CODE" = "200" ]; then
+    echo "Request succeeded with HTTP 200"
+    break
+  fi
+
+  RETRIES=$((RETRIES + 1))
+  sleep $RETRY_INTERVAL
+done
+
+if [ $RETRIES -eq $MAX_RETRIES ]; then
+  echo "Failed: reached max retries ($MAX_RETRIES)"
+  exit 1
+fi
+
 QUOTE_REGISTER_REQUEST=$(echo "$QUOTE_RESPONSE" \
   | jq --arg hex "$HEX_KEY" \
        'del(.report_data) | .public_key = $hex')
