@@ -1,3 +1,10 @@
+x-common: &common-config
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "100m"
+      max-file: "5"
+
 volumes:
   shared-tmpfs:
     driver: local
@@ -8,7 +15,8 @@ volumes:
 
 services:
   nginx:
-    image: testinprod/panda-nginx:0.0.1-test9
+    <<: *common-config
+    image: testinprod/panda-nginx:0.0.2
     container_name: nginx
     ports:
       - "443:443"
@@ -16,28 +24,28 @@ services:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - shared-tmpfs:/cert-dir
     environment:
-      - PANDA_LLM_DOMAIN=panda-llm-test.yolkie.xyz
-      - PANDA_LLM_CERT_DOMAINS=["panda-llm-test.yolkie.xyz", "nil5.yolkie.xyz"]
+      - PANDA_LLM_DOMAIN=llm-alpha.panda.chat
+      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil.panda.chat"]
       - PANDA_CERT_DIR=/cert-dir
       - PANDA_ACME_URL=https://acme-v02.api.letsencrypt.org/directory
       - PANDA_CF_API_TOKEN=${PANDA_CF_API_TOKEN}
       - PANDA_CF_ZONE_ID=${PANDA_CF_ZONE_ID}
-      - PANDA_APP_SERVER=https://app.staging.panda.chat
+      - PANDA_APP_SERVER=https://app.panda.chat
       - PANDA_APP_SERVER_TOKEN=${PANDA_APP_SERVER_TOKEN}
 
   vllm-proxy-deepseek:
-    image: testinprod/panda-vllm-proxy:0.0.1-test6
+    <<: *common-config
+    image: testinprod/panda-vllm-proxy:0.0.2
     container_name: vllm-proxy-deepseek
     privileged: true
     ports:
       - "8000:8000"
     volumes:
       - shared-tmpfs:/cert-dir
-      - /var/volatile/dstack/persistent:/data
     environment:
       JWT_PUB_KEY: |
         -----BEGIN PUBLIC KEY-----
-        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGvGT/EO1yLDOEJjADoeL2xAnSB8Bxh4ycukEkMpd5M5SD9GT1Pqrxj5nGM5bQ/TPz35qduZLMzF3EGhx8CqG6A==
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/VjJFvojh5S98Bf7F8pai1cwYCWUqh4D3W8yP5cKMVU6LM1XnQDdnmiqZg3H71z4y/sZohkJR5utIEASSqXZpg==
         -----END PUBLIC KEY-----
       WORKERS: 4
       VLLM_URL: http://vllm-deepseek:8000/v1/chat/completions
@@ -47,7 +55,7 @@ services:
       SUMMARIZATION_MODEL: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       MAX_MODEL_LENGTH: 65536
       JWT_ALGORITHM: ES256
-      APP_ID: cm9i6pezy041iif0npn86ctjt
+      APP_ID: cmavhlsn7019ll20lsdkqf0so
       BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
       MILVUS_URI: http://standalone:19530
       CORS_ALLOWED_ORIGINS: "[\"*\"]"
@@ -58,18 +66,18 @@ services:
       - vllm-deepseek
 
   vllm-proxy-llama:
-    image: testinprod/panda-vllm-proxy:0.0.1-test6
+    <<: *common-config
+    image: testinprod/panda-vllm-proxy:0.0.2
     container_name: vllm-proxy-llama
     privileged: true
     ports:
       - "8001:8000"
     volumes:
       - shared-tmpfs:/cert-dir
-      - /var/volatile/dstack/persistent:/data
     environment:
       JWT_PUB_KEY: |
         -----BEGIN PUBLIC KEY-----
-        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGvGT/EO1yLDOEJjADoeL2xAnSB8Bxh4ycukEkMpd5M5SD9GT1Pqrxj5nGM5bQ/TPz35qduZLMzF3EGhx8CqG6A==
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/VjJFvojh5S98Bf7F8pai1cwYCWUqh4D3W8yP5cKMVU6LM1XnQDdnmiqZg3H71z4y/sZohkJR5utIEASSqXZpg==
         -----END PUBLIC KEY-----
       WORKERS: 4
       VLLM_URL: http://vllm-llama:8000/v1/chat/completions
@@ -78,7 +86,7 @@ services:
       MODEL_NAME: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       SUMMARIZATION_MODEL: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       JWT_ALGORITHM: ES256
-      APP_ID: cm9i6pezy041iif0npn86ctjt
+      APP_ID: cmavhlsn7019ll20lsdkqf0so
       BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
       MILVUS_URI: http://standalone:19530
       CORS_ALLOWED_ORIGINS: "[\"*\"]"
@@ -89,7 +97,8 @@ services:
       - vllm-llama
 
   vllm-deepseek:
-    image: testinprod/panda-vllm-ray:0.0.1-test3
+    <<: *common-config
+    image: testinprod/panda-vllm-ray:0.9.0.1
     container_name: vllm-deepseek
     runtime: nvidia
     ports:
@@ -117,6 +126,7 @@ services:
       --max-model-len 65536
       --download-dir /data/vllm-deepseek
       --distributed-executor-backend ray
+      --disable-log-requests
     environment:
       - OMP_NUM_THREADS=16
       - LLM_USE_V1=1
@@ -124,7 +134,8 @@ services:
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
 
   vllm-llama:
-    image: testinprod/panda-vllm-ray:0.0.1-test3
+    <<: *common-config
+    image: testinprod/panda-vllm-ray:0.9.0.1
     container_name: vllm-llama
     runtime: nvidia
     ports:
@@ -146,11 +157,13 @@ services:
       --kv-cache-dtype fp8
       --gpu-memory-utilization 0.98
       --download-dir /data/vllm-llama
+      --disable-log-requests
     environment:
       - HF_TOKEN=${HF_TOKEN}
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
 
   etcd:
+    <<: *common-config
     container_name: milvus-etcd
     image: quay.io/coreos/etcd:v3.5.18
     environment:
@@ -168,6 +181,7 @@ services:
       retries: 3
 
   minio:
+    <<: *common-config
     container_name: milvus-minio
     image: minio/minio:RELEASE.2023-03-20T20-16-18Z
     environment:
@@ -186,6 +200,7 @@ services:
       retries: 3
 
   standalone:
+    <<: *common-config
     container_name: milvus-standalone
     image: milvusdb/milvus:v2.5.12
     command: ["milvus", "run", "standalone"]
