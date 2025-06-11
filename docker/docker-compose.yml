@@ -110,7 +110,7 @@ services:
           devices:
             - driver: nvidia
               capabilities: [ gpu ]
-              device_ids: [ "0","1","2","3","4","5","6" ]
+              device_ids: [ "0","1","2","3","4","5" ]
     volumes:
       - /var/volatile/dstack/persistent:/data
     shm_size: "32g"
@@ -118,8 +118,8 @@ services:
     command: >
       --model ig1/r1-1776-AWQ
       --dtype auto
-      --tensor-parallel-size 1
-      --pipeline-parallel-size 7
+      --tensor-parallel-size 2
+      --pipeline-parallel-size 3
       --gpu-memory-utilization 0.95
       --enable-chunked-prefill
       --enable-reasoning  
@@ -149,16 +149,20 @@ services:
           devices:
             - driver: nvidia
               capabilities: [ gpu ]
-              device_ids: [ "7" ]
+              device_ids: [ "6", "7" ]
     entrypoint: ["/bin/sh", "-c", "sleep 60 && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
     command: >
       --model RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       --dtype auto
-      --max-model-len 32000
+      --max-model-len 100000
+      --tensor-parallel-size 2
       --gpu-memory-utilization 0.95
       --download-dir /data/vllm-llama
+      --distributed-executor-backend ray
       --disable-log-requests
     environment:
+      - OMP_NUM_THREADS=16
+      - LLM_USE_V1=1
       - HF_TOKEN=${HF_TOKEN}
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
 
