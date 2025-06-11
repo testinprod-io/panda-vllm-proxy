@@ -1,6 +1,5 @@
 from fastapi import HTTPException
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-import asyncio
 
 from ...config import get_settings
 from ...logger import log
@@ -12,8 +11,8 @@ settings = get_settings()
 SUMMARIZATION_MODEL = settings.SUMMARIZATION_MODEL or settings.MODEL_NAME
 SUMMARIZATION_VLLM_URL = settings.SUMMARIZATION_VLLM_URL
 
-SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS = 60000 
-PROMPT_OVERHEAD_TOKENS = 150 
+SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS = 75000
+PROMPT_OVERHEAD_TOKENS = 150
 CHARS_PER_TOKEN_HEURISTIC = 3
 
 MAX_TEXT_TOKENS_FOR_LLM = SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS - PROMPT_OVERHEAD_TOKENS
@@ -71,18 +70,16 @@ async def call_summarization_llm(text: str, max_tokens_for_final_summary: int) -
 
         # Process all chunks
         log.info(f"Starting summarization of {len(text_chunks)} chunks...")
-        summarization_tasks = []
+        summarization_results = []
         for i, chunk in enumerate(text_chunks):
-            log.info(f"Creating summarization task for chunk {i+1}/{len(text_chunks)}")
-            task = _summarize_single_chunk(chunk, approx_words_per_chunk_summary)
-            summarization_tasks.append(task)
-        
-        # Wait for all chunk summarizations to complete
-        chunk_summary_results = await asyncio.gather(*summarization_tasks, return_exceptions=True)
+            log.info(f"Summarizing chunk {i+1}/{len(text_chunks)}")
+            # Send request sequentially, to acquire some capacity for other requests
+            summarization_result = await _summarize_single_chunk(chunk, approx_words_per_chunk_summary)
+            summarization_results.append(summarization_result)
         
         # Filter successful summaries and handle exceptions
         chunk_summaries = []
-        for i, result in enumerate(chunk_summary_results):
+        for i, result in enumerate(summarization_results):
             if isinstance(result, Exception):
                 log.error(f"Chunk {i+1} summarization failed with exception")
                 continue
