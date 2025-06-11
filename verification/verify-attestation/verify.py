@@ -195,7 +195,7 @@ print_result(True, f"Passed")
 console.print("\n[bold green]🔒 Secure Verification Report[/bold green]")
 console.print(f"• Attested Cert: [dim]{attestation['public_key']}[/dim]")
 console.print(f"• OS Image: [cyan]{os_image_hash}[/cyan]")
-console.print(f"• App Bundle: [cyan]{compose_hash}[/cyan]")
+console.print(f"• Compose Hash: [cyan]{compose_hash}[/cyan]")
 console.print(f"• Contract [cyan]https://optimistic.etherscan.io/address/0x3366E906D7C2362cE4C336f43933Cccf76509B23[/cyan]")
 
 console.print('''\n✅ This attestation has been [bold green]cryptographically verified[/bold green] via  
