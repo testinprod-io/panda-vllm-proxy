@@ -224,3 +224,15 @@ services:
     depends_on:
       - "etcd"
       - "minio"
+
+  alloy:
+    image: grafana/alloy:v1.9.1
+    environment:
+      - PROMETHEUS_HOST=${PROMETHEUS_HOST}
+      - LOKI_HOST=${LOKI_HOST}
+    volumes:
+      - /var/volatile/dstack/persistent:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: ["run", "/data/alloy/config.alloy"]
+    ports: ["12345:12345"]
+    restart: unless-stopped
