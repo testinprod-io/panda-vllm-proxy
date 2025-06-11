@@ -204,6 +204,6 @@ confirming integrity against on-chain records.''')
 
 console.print("\n[bold]🔍 Need to verify the build?[/bold]")
 console.print(f"• Reproduce OS hash: [cyan]{attestation['os_code']}[/cyan]")
-console.print(f"• Inspect app sources: [cyan]https://github.com/nearai/private-ml-sdk/tree/{attestation['compose_hash']}[/cyan]\n")
+console.print(f"• Inspect app sources: [cyan]https://github.com/testinprod-io/panda-vllm-proxy/tree/{attestation['compose_hash']}[/cyan]\n")
 
 
