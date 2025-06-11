@@ -1,0 +1,69 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'alloy/v*'
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest-m
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # needed for signing the images with GitHub OIDC Token
+
+    name: build-image
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.8.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Container Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - id: docker_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: testinprod/panda-alloy
+          tags: |
+            type=match,pattern=alloy/v(.*),group=1
+          flavor: |
+            latest=false
+
+      - name: Build and Push container images
+        uses: docker/build-push-action@v6
+        id: build-and-push
+        with:
+          file: docker/alloy/Dockerfile
+          context: docker/alloy
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
+
+      - name: Sign and verify the images with GitHub OIDC Token
+        env:
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          TAGS: ${{ steps.docker_meta.outputs.tags }}
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            images+="${tag}@${DIGEST} "
+          done
+          images+="index.docker.io/testinprod/panda-alloy@${DIGEST}"
+          cosign sign --yes --annotations git-commit=${{ github.sha }} ${images}
+          cosign verify ${images} \
+          --certificate-identity=https://github.com/${{ github.repository }}/.github/workflows/release-alloy.yml@refs/tags/${{ github.ref_name }} \
+          --certificate-oidc-issuer=https://token.actions.githubusercontent.com
