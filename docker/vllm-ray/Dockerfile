@@ -1,3 +1,3 @@
-FROM vllm/vllm-openai:v0.9.0.1
+FROM vllm/vllm-openai:v0.9.1
 
 RUN pip install "ray[default]" pyarrow pandas
