@@ -154,9 +154,8 @@ services:
     command: >
       --model RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       --dtype auto
-      --max-model-len 64000
-      --kv-cache-dtype fp8
-      --gpu-memory-utilization 0.98
+      --max-model-len 32000
+      --gpu-memory-utilization 0.90
       --download-dir /data/vllm-llama
       --disable-log-requests
     environment:
