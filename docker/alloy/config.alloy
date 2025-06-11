@@ -45,6 +45,21 @@ discovery.relabel "getting_started" {
 		regex         = "/(.*)"
 		target_label  = "container"
 	}
+
+    rule {
+        target_label = "instance"
+        replacement = "cudo-h100-1"
+    }
+
+    rule {
+        target_label = "environment"
+        replacement = "production"
+    }
+
+    rule {
+        target_label = "source_type"
+        replacement = "guest"
+    }
 }
 
 loki.source.docker "containers" {
