@@ -4,6 +4,7 @@ x-common: &common-config
     options:
       max-size: "100m"
       max-file: "5"
+  restart: unless-stopped
 
 volumes:
   shared-tmpfs:
@@ -16,7 +17,7 @@ volumes:
 services:
   nginx:
     <<: *common-config
-    image: testinprod/panda-nginx:0.0.2
+    image: testinprod/panda-nginx:0.0.3
     container_name: nginx
     ports:
       - "443:443"
@@ -98,7 +99,7 @@ services:
 
   vllm-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-ray:0.9.0.1
+    image: testinprod/panda-vllm-ray:0.9.1
     container_name: vllm-deepseek
     runtime: nvidia
     ports:
@@ -135,7 +136,7 @@ services:
 
   vllm-llama:
     <<: *common-config
-    image: testinprod/panda-vllm-ray:0.9.0.1
+    image: testinprod/panda-vllm-ray:0.9.1
     container_name: vllm-llama
     runtime: nvidia
     ports:
