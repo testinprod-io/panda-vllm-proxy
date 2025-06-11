@@ -226,6 +226,7 @@ services:
       - "minio"
 
   alloy:
+    <<: *common-config
     image: testinprod/panda-alloy:0.0.1
     environment:
       - PROMETHEUS_HOST=${PROMETHEUS_HOST}
@@ -233,4 +234,3 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports: ["12345:12345"]
-    restart: unless-stopped
