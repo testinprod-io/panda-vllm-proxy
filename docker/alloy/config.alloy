@@ -1,0 +1,77 @@
+// ──────────── PROMETHEUS METRICS ────────────
+
+prometheus.remote_write "prometheus" {
+    endpoint {
+        url = env("PROMETHEUS_HOST")
+    }
+}
+
+prometheus.scrape "metrics" {
+    targets = [
+        { __address__ = "vllm-deepseek:8000", job = "vllm-deepseek", environment = "production", },
+        { __address__ = "vllm-llama:8000", job = "vllm-llama", environment = "production", },
+        { __address__ = "standalone:9091", job = "milvus", environment = "production", },
+    ]
+  
+    scrape_interval = "15s"
+    metrics_path = "/metrics"
+    scheme = "http"
+    
+    forward_to = [prometheus.remote_write.prometheus.receiver]
+}
+
+prometheus.scrape "alloy_self" {
+    targets = [
+        { __address__ = "localhost:12345", job = "alloy" },
+    ]
+    
+    scrape_interval = "15s"
+    scrape_timeout = "10s"
+        
+    forward_to = [prometheus.remote_write.prometheus.receiver]
+}
+
+// ──────────────── LOKI LOGS ───────────────
+
+discovery.docker "linux" {
+    host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "getting_started" {
+	targets = []
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "container"
+	}
+
+    rule {
+        target_label = "instance"
+        replacement = "cudo-h100-1"
+    }
+
+    rule {
+        target_label = "environment"
+        replacement = "production"
+    }
+
+    rule {
+        target_label = "source_type"
+        replacement = "guest"
+    }
+}
+
+loki.source.docker "containers" {
+    host    = "unix:///var/run/docker.sock"
+    targets = discovery.docker.linux.targets
+    relabel_rules = discovery.relabel.getting_started.rules
+    
+    forward_to = [loki.write.to_loki.receiver]
+}
+
+loki.write "to_loki" {
+    endpoint {
+        url = env("LOKI_HOST")
+    }
+}
