@@ -143,6 +143,7 @@ services:
       - "8003:8000"
     volumes:
       - /var/volatile/dstack/persistent:/data
+    shm_size: "32g"
     deploy:
       resources:
         reservations:
