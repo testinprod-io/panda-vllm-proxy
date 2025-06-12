@@ -17,7 +17,7 @@ volumes:
 services:
   nginx:
     <<: *common-config
-    image: testinprod/panda-nginx:0.0.3
+    image: testinprod/panda-nginx:0.0.5
     container_name: nginx
     ports:
       - "443:443"
@@ -26,7 +26,7 @@ services:
       - shared-tmpfs:/cert-dir
     environment:
       - PANDA_LLM_DOMAIN=llm-alpha.panda.chat
-      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil.panda.chat"]
+      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil2.panda.chat"]
       - PANDA_CERT_DIR=/cert-dir
       - PANDA_ACME_URL=https://acme-v02.api.letsencrypt.org/directory
       - PANDA_CF_API_TOKEN=${PANDA_CF_API_TOKEN}
@@ -36,7 +36,7 @@ services:
 
   vllm-proxy-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.2
+    image: testinprod/panda-vllm-proxy:0.0.3
     container_name: vllm-proxy-deepseek
     privileged: true
     ports:
@@ -68,7 +68,7 @@ services:
 
   vllm-proxy-llama:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.2
+    image: testinprod/panda-vllm-proxy:0.0.3
     container_name: vllm-proxy-llama
     privileged: true
     ports:
@@ -110,7 +110,7 @@ services:
           devices:
             - driver: nvidia
               capabilities: [ gpu ]
-              device_ids: [ "0","1","2","3","4","5","6" ]
+              device_ids: [ "0","1","2","3","4","5" ]
     volumes:
       - /var/volatile/dstack/persistent:/data
     shm_size: "32g"
@@ -118,8 +118,8 @@ services:
     command: >
       --model ig1/r1-1776-AWQ
       --dtype auto
-      --tensor-parallel-size 1
-      --pipeline-parallel-size 7
+      --tensor-parallel-size 2
+      --pipeline-parallel-size 3
       --gpu-memory-utilization 0.95
       --enable-chunked-prefill
       --enable-reasoning  
@@ -143,22 +143,27 @@ services:
       - "8003:8000"
     volumes:
       - /var/volatile/dstack/persistent:/data
+    shm_size: "32g"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               capabilities: [ gpu ]
-              device_ids: [ "7" ]
+              device_ids: [ "6", "7" ]
     entrypoint: ["/bin/sh", "-c", "sleep 60 && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
     command: >
       --model RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       --dtype auto
-      --max-model-len 32000
+      --max-model-len 100000
+      --tensor-parallel-size 2
       --gpu-memory-utilization 0.95
       --download-dir /data/vllm-llama
+      --distributed-executor-backend ray
       --disable-log-requests
     environment:
+      - OMP_NUM_THREADS=16
+      - LLM_USE_V1=1
       - HF_TOKEN=${HF_TOKEN}
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
 
