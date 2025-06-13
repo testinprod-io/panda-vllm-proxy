@@ -16,7 +16,7 @@ async def get_system_prompt(model: str, usage: str) -> str:
             log.info("Retrieved system prompts from cache")
             return cached_prompts
 
-        base_url = get_settings().PANDA_APP_SERVER_URL
+        base_url = get_settings().PANDA_APP_SERVER
         api_key = get_settings().PANDA_APP_SERVER_TOKEN
         client = httpx.AsyncClient()
         response = await client.get(
