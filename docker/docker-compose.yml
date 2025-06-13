@@ -63,6 +63,8 @@ services:
       TLS_CERT_PATH: /cert-dir/live/cert.pem
       TLS_CERT_PRIVATE_KEY_PATH: /cert-dir/live/key.pem
       HF_HOME: /tmp/huggingface/deepseek
+      PANDA_APP_SERVER: https://app.panda.chat
+      PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
     depends_on:
       - vllm-deepseek
 
@@ -94,6 +96,8 @@ services:
       TLS_CERT_PATH: /cert-dir/live/cert.pem
       TLS_CERT_PRIVATE_KEY_PATH: /cert-dir/live/key.pem
       HF_HOME: /tmp/huggingface/llama
+      PANDA_APP_SERVER: https://app.panda.chat
+      PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
     depends_on:
       - vllm-llama
 
