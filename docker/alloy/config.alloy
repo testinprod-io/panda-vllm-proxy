@@ -40,7 +40,7 @@ prometheus.scrape "cadvisor" {
 
 // ──────────────── NVIDIA GPU METRICS ────────────
 
-prometheus.scrape "nvidia-smi-exporter" {
+prometheus.scrape "nvidia_smi_exporter" {
     targets = [
         { __address__ = "nvidia-smi-exporter:9835", job = "nvidia-smi-exporter", instance = "cudo-h100-1", environment = "production", source_type = "guest" },
     ]
