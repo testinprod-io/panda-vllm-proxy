@@ -4,7 +4,7 @@ from cachetools import TTLCache
 from ...config import get_settings
 from ...logger import log
 
-_system_prompts_cache = TTLCache(maxsize=100, ttl=300)  # 5 minutes TTL
+_system_prompts_cache = TTLCache(maxsize=100, ttl=3)  # 5 minutes TTL
 
 async def get_system_prompt(model: str, usage: str) -> str:
     """
