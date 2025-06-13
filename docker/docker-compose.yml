@@ -114,7 +114,7 @@ services:
     volumes:
       - /var/volatile/dstack/persistent:/data
     shm_size: "32g"
-    entrypoint: ["/bin/sh", "-c", "sleep 60 && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
+    entrypoint: ["/bin/sh", "-c", "sleep 60 && /modify-tokenizer.sh && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
     command: >
       --model ig1/r1-1776-AWQ
       --dtype auto
@@ -128,12 +128,15 @@ services:
       --download-dir /data/vllm-deepseek
       --distributed-executor-backend ray
       --disable-log-requests
-      --trust-remote-code
+      --tokenizer=/tmp/tokenizer
     environment:
       - OMP_NUM_THREADS=16
       - LLM_USE_V1=1
       - HF_TOKEN=${HF_TOKEN}
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
+      - TOKENIZER_DIR=/tmp/tokenizer
+      - MODEL_ID=ig1/r1-1776-AWQ
+      - NEW_LENGTH=65536
 
   vllm-llama:
     <<: *common-config
