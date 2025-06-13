@@ -99,7 +99,7 @@ services:
 
   vllm-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-ray:0.9.1-3
+    image: testinprod/panda-vllm-ray:0.9.1-4
     container_name: vllm-deepseek
     runtime: nvidia
     ports:
@@ -236,7 +236,7 @@ services:
 
   alloy:
     <<: *common-config
-    image: testinprod/panda-alloy:0.0.2-rc1
+    image: testinprod/panda-alloy:0.0.2-rc2
     environment:
       - PROMETHEUS_HOST=${PROMETHEUS_HOST}
       - LOKI_HOST=${LOKI_HOST}
