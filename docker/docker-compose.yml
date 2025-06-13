@@ -238,4 +238,10 @@ services:
       - LOKI_HOST=${LOKI_HOST}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - /:/rootfs:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    devices:
+      - /dev/kmsg
     ports: ["12345:12345"]
