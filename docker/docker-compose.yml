@@ -233,7 +233,7 @@ services:
 
   alloy:
     <<: *common-config
-    image: testinprod/panda-alloy:0.0.1
+    image: testinprod/panda-alloy:0.0.2-rc1
     environment:
       - PROMETHEUS_HOST=${PROMETHEUS_HOST}
       - LOKI_HOST=${LOKI_HOST}
