@@ -1,4 +1,4 @@
-// ──────────── PROMETHEUS METRICS ────────────
+// ──────────── PROMETHEUS ────────────
 
 prometheus.remote_write "prometheus" {
     endpoint {
@@ -6,11 +6,59 @@ prometheus.remote_write "prometheus" {
     }
 }
 
+// ──────────────── CADVISOR METRICS ────────────
+
+prometheus.exporter.cadvisor "cadvisor" {
+    docker_host = "unix:///var/run/docker.sock"
+
+    storage_duration = "5m"
+}
+
+discovery.relabel "cadvisor_relabel" {
+    targets = prometheus.exporter.cadvisor.cadvisor.targets
+
+    rule {
+        target_label = "instance"
+        replacement = "cudo-h100-1"
+    }
+
+    rule {
+        target_label = "environment"
+        replacement = "production"
+    }
+
+    rule {
+        target_label = "source_type"
+        replacement = "guest"
+    }
+}
+
+prometheus.scrape "cadvisor" {
+    targets    = discovery.relabel.cadvisor_relabel.output
+    forward_to = [prometheus.remote_write.prometheus.receiver]
+}
+
+// ──────────────── NVIDIA GPU METRICS ────────────
+
+prometheus.scrape "nvidia-smi-exporter" {
+    targets = [
+        { __address__ = "nvidia-smi-exporter:9835", job = "nvidia-smi-exporter", instance = "cudo-h100-1", environment = "production", source_type = "guest" },
+    ]
+
+    scrape_interval = "15s"
+    metrics_path = "/metrics"
+    scheme = "http"
+    
+    forward_to = [prometheus.remote_write.prometheus.receiver]
+}
+
+// ──────────────── VLLM & MILVUS METRICS ────────────
+
 prometheus.scrape "metrics" {
     targets = [
-        { __address__ = "vllm-deepseek:8000", job = "vllm-deepseek", environment = "production", },
-        { __address__ = "vllm-llama:8000", job = "vllm-llama", environment = "production", },
-        { __address__ = "standalone:9091", job = "milvus", environment = "production", },
+        { __address__ = "vllm-deepseek:8000", job = "vllm-deepseek", instance = "cudo-h100-1", environment = "production", source_type = "guest" },
+        { __address__ = "vllm-llama:8000", job = "vllm-llama", instance = "cudo-h100-1", environment = "production", source_type = "guest" },
+        { __address__ = "standalone:9091", job = "milvus", instance = "cudo-h100-1", environment = "production", source_type = "guest" },
     ]
   
     scrape_interval = "15s"
@@ -19,6 +67,8 @@ prometheus.scrape "metrics" {
     
     forward_to = [prometheus.remote_write.prometheus.receiver]
 }
+
+// ──────────────── ALLOY METRICS ────────────
 
 prometheus.scrape "alloy_self" {
     targets = [
