@@ -4,11 +4,12 @@ from fastapi.responses import JSONResponse
 from typing import Union, List, Dict, Optional, Any
 from datetime import datetime
 import hashlib
+import asyncio
 
 from ...config import get_settings
 from ...logger import log
-from ...prompts.prompts import DEFAULT_SYSTEM_PROMPT, VECTOR_DB_SYSTEM_PROMPT
 from ...dependencies import get_milvus_wrapper, get_reranker
+from .get_system_prompt import get_system_prompt
 
 LLMSuccessResponse = Union[Dict[str, Any], List[Any]]
 THRESHOLD = 0.6
@@ -24,11 +25,11 @@ async def arequest_llm(request_body: str, stream: bool = True, vllm_url: str = g
     response: Optional[httpx.Response] = None
 
     # Add system prompt to the request body
-    request_body = _add_system_prompt(request_body)
+    request_body = await _add_system_prompt(request_body)
 
     # Apply vector DB if enabled
     if use_vector_db:
-        request_body = _apply_vector_db(request_body, user_id)
+        request_body = await _apply_vector_db(request_body, user_id)
 
     try:
         headers = { "Content-Type": "application/json" }
@@ -90,7 +91,7 @@ def request_llm(request_body: str, stream: bool = True, vllm_url: str = get_sett
     response: Optional[httpx.Response] = None
 
     # Add system prompt to the request body
-    request_body = _add_system_prompt(request_body)
+    request_body = asyncio.run(_add_system_prompt(request_body))
 
     try:
         headers = { "Content-Type": "application/json" }
@@ -140,10 +141,12 @@ def request_llm(request_body: str, stream: bool = True, vllm_url: str = get_sett
         if client and not client.is_closed and not is_streaming_success:
             client.close()
 
-def _add_system_prompt(request_body: str) -> str:
+async def _add_system_prompt(request_body: str) -> str:
     """Add a system prompt to the messages."""
     request_body = json.loads(request_body)
-    request_body["messages"] = [{"role": "system", "content": DEFAULT_SYSTEM_PROMPT.format(current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))}] + request_body["messages"]
+    default_prompt = await get_system_prompt(request_body["model"], "default")
+    if default_prompt:
+        request_body["messages"] = [{"role": "system", "content": default_prompt.format(current_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))}] + request_body["messages"]
     return json.dumps(request_body)
 
 def get_user_collection_name(user_id: str) -> str:
@@ -151,7 +154,7 @@ def get_user_collection_name(user_id: str) -> str:
     hash_id = hashlib.sha256(user_id.encode()).hexdigest()
     return "user_" + hash_id
 
-def _apply_vector_db(request_body: str, user_id: str | None) -> str:
+async def _apply_vector_db(request_body: str, user_id: str | None) -> str:
     """Apply vector DB to the request body."""
     if user_id is None:
         return request_body
@@ -202,14 +205,19 @@ def _apply_vector_db(request_body: str, user_id: str | None) -> str:
 
     # Augment the request body with the documents
     if len(docs) > 0:
-        augmented_message = {
-            "role": "system",
-            "content": [
-                {
-                    "type": "text",
-                    "text": VECTOR_DB_SYSTEM_PROMPT.format(docs_str=docs_str, doc_count=len(docs))
-                }
-            ]
-        }
+        vector_prompt = await get_system_prompt(request_body["model"], "vector")
+        if vector_prompt:
+            augmented_message = {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": vector_prompt.format(docs_str=docs_str, doc_count=len(docs))
+                    }
+                ]
+            }
+        else:
+            augmented_message = None
+
         request_body["messages"] = request_body["messages"][:-1] + [augmented_message] + request_body["messages"][-1:]
     return json.dumps(request_body)

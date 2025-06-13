@@ -65,7 +65,7 @@ async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
         augmented_request_dict = payload.model_dump(exclude_none=True) 
         original_messages_dicts = [msg.model_dump(exclude_none=True) for msg in payload.messages]
         
-        augmented_request_dict["messages"] = augment_messages_with_pdf(
+        augmented_request_dict["messages"] = await augment_messages_with_pdf(
             original_messages_dicts, parse_results_str
         )
         

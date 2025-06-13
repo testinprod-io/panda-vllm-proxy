@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # CORS config
     CORS_ALLOWED_ORIGINS: list[str] = ["*"]
 
+    # App server config
+    PANDA_APP_SERVER_URL: str
+    PANDA_APP_SERVER_TOKEN: str
+
     TLS_CERT_PATH: str | None = None
     TLS_CERT_PRIVATE_KEY_PATH: str | None = None
 

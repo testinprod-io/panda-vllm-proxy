@@ -4,7 +4,8 @@ from langchain_core.documents.base import Blob
 from langchain_core.documents import Document
 
 from ...api.v1.models import ChatMessage, ContentPart, PdfContent, SenderTypeEnum
-from ...prompts.prompts import PDF_SYSTEM_PROMPT
+from ...api.helper.get_system_prompt import get_system_prompt
+from ...config import get_settings
 
 def clean_message_of_pdf_urls(chat_message: ChatMessage) -> ChatMessage:
     """Creates a new ChatMessage instance with pdf_url content parts removed."""
@@ -54,7 +55,7 @@ def parse_text_from_pdf(pdf_bytes: bytes) -> List[Document]:
         docs.append(doc)
     return docs
 
-def augment_messages_with_pdf(
+async def augment_messages_with_pdf(
     original_messages: List[Dict[str, Any]], 
     pdf_text: str
 ) -> List[Dict[str, Any]]:
@@ -62,13 +63,16 @@ def augment_messages_with_pdf(
     The PDF text is injected as a system message before the target user message.
     All messages are cleaned of pdf_url content parts.
     """
-    system_command = PDF_SYSTEM_PROMPT.format(pdf_text=pdf_text)
-    system_prompt_message = ChatMessage(role=SenderTypeEnum.SYSTEM, content=system_command).model_dump()
-    last_msg_index = len(original_messages) - 1
-    augmented_messages = (
-        original_messages[:last_msg_index]
-        + [system_prompt_message]
-        + [original_messages[last_msg_index]]
-    )   
+    augmented_messages = original_messages
+    pdf_prompt = await get_system_prompt(get_settings().SUMMARIZATION_MODEL, "pdf")
+    if pdf_prompt:
+        system_command = pdf_prompt.format(pdf_text=pdf_text)
+        system_prompt_message = ChatMessage(role=SenderTypeEnum.SYSTEM, content=system_command).model_dump()
+        last_msg_index = len(original_messages) - 1
+        augmented_messages = (
+            original_messages[:last_msg_index]
+            + [system_prompt_message]
+            + [original_messages[last_msg_index]]
+        )
 
     return augmented_messages
