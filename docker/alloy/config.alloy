@@ -38,6 +38,20 @@ prometheus.scrape "cadvisor" {
     forward_to = [prometheus.remote_write.prometheus.receiver]
 }
 
+// ──────────────── NVIDIA GPU METRICS ────────────
+
+prometheus.scrape "nvidia-smi-exporter" {
+    targets = [
+        { __address__ = "nvidia-smi-exporter:9835", job = "nvidia-smi-exporter", instance = "cudo-h100-1", environment = "production", source_type = "guest" },
+    ]
+
+    scrape_interval = "15s"
+    metrics_path = "/metrics"
+    scheme = "http"
+    
+    forward_to = [prometheus.remote_write.prometheus.receiver]
+}
+
 // ──────────────── VLLM & MILVUS METRICS ────────────
 
 prometheus.scrape "metrics" {
