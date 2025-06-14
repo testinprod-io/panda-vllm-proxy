@@ -26,7 +26,7 @@ services:
       - shared-tmpfs:/cert-dir
     environment:
       - PANDA_LLM_DOMAIN=llm-alpha.panda.chat
-      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil2.panda.chat"]
+      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil3.panda.chat"]
       - PANDA_CERT_DIR=/cert-dir
       - PANDA_ACME_URL=https://acme-v02.api.letsencrypt.org/directory
       - PANDA_CF_API_TOKEN=${PANDA_CF_API_TOKEN}
@@ -99,7 +99,7 @@ services:
 
   vllm-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-ray:0.9.1
+    image: testinprod/panda-vllm-ray:0.9.1-4
     container_name: vllm-deepseek
     runtime: nvidia
     ports:
@@ -114,7 +114,7 @@ services:
     volumes:
       - /var/volatile/dstack/persistent:/data
     shm_size: "32g"
-    entrypoint: ["/bin/sh", "-c", "sleep 60 && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
+    entrypoint: ["/bin/sh", "-c", "sleep 60 && /modify-tokenizer.sh && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
     command: >
       --model ig1/r1-1776-AWQ
       --dtype auto
@@ -128,11 +128,15 @@ services:
       --download-dir /data/vllm-deepseek
       --distributed-executor-backend ray
       --disable-log-requests
+      --tokenizer=/tmp/tokenizer
     environment:
       - OMP_NUM_THREADS=16
       - LLM_USE_V1=1
       - HF_TOKEN=${HF_TOKEN}
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
+      - TOKENIZER_DIR=/tmp/tokenizer
+      - MODEL_ID=ig1/r1-1776-AWQ
+      - NEW_LENGTH=65536
 
   vllm-llama:
     <<: *common-config
@@ -232,7 +236,7 @@ services:
 
   alloy:
     <<: *common-config
-    image: testinprod/panda-alloy:0.0.1
+    image: testinprod/panda-alloy:0.0.2-rc2
     environment:
       - PROMETHEUS_HOST=${PROMETHEUS_HOST}
       - LOKI_HOST=${LOKI_HOST}
