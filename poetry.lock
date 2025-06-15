@@ -390,6 +390,18 @@ files = [
 ]
 
 [[package]]
+name = "cachetools"
+version = "6.0.0"
+description = "Extensible memoizing collections and decorators"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "cachetools-6.0.0-py3-none-any.whl", hash = "sha256:82e73ba88f7b30228b5507dce1a1f878498fc669d972aef2dde4f3a3c24f103e"},
+    {file = "cachetools-6.0.0.tar.gz", hash = "sha256:f225782b84438f828328fc2ad74346522f27e5b1440f4e9fd18b20ebfd1aa2cf"},
+]
+
+[[package]]
 name = "cbor"
 version = "1.0.0"
 description = "RFC 7049 - Concise Binary Object Representation"
@@ -6494,4 +6506,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "=3.11.12"
-content-hash = "5f81bd993b41fb37a4e1dd642bbb28423ea5ee2ce79cb417d75fb8676933e695"
+content-hash = "01e22ed90f70f031d957d59e9b3af15bb5ca4076ceafcdd0c212c9ddaf46bfb7"

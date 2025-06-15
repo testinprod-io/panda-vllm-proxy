@@ -38,6 +38,7 @@ sentence-transformers = "^4.1.0"
 peft = "^0.15.2"
 flagembedding = "^1.3.5"
 logfmt = "^0.4"
+cachetools = "^6.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
