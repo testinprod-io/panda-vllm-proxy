@@ -17,7 +17,7 @@ volumes:
 services:
   nginx:
     <<: *common-config
-    image: testinprod/panda-nginx:0.0.5
+    image: testinprod/panda-nginx:0.0.6
     container_name: nginx
     ports:
       - "443:443"
