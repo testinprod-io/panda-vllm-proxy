@@ -75,7 +75,7 @@ async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse
     augmented_request_dict = payload.model_dump(exclude_none=True) 
     original_messages_dicts = [msg.model_dump(exclude_none=True) for msg in payload.messages]
 
-    augmented_request_dict["messages"] = augment_messages_with_search(
+    augmented_request_dict["messages"] = await augment_messages_with_search(
         original_messages_dicts, search_results_str
     )
 

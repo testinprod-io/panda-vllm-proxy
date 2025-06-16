@@ -5,11 +5,7 @@ from rake_nltk import Rake
 from ...logger import log
 from ...config import get_settings
 from ...rag.summarizing_llm import SummarizingLLM
-from ...prompts.prompts import (
-    SEARCH_SYSTEM_PROMPT,
-    SEARCH_SYSTEM_INFORMATION_PROMPT,
-    EXTRACT_KEYWORDS_PROMPT
-)
+from ...api.helper.get_system_prompt import get_system_prompt
 
 settings = get_settings()
 KEYWORD_EXTRACTION_MODEL = settings.SUMMARIZATION_MODEL or settings.MODEL_NAME
@@ -17,7 +13,11 @@ KEYWORD_EXTRACTION_VLLM_URL = settings.SUMMARIZATION_VLLM_URL
 
 async def extract_keywords_llm(query: str) -> List[str]:
     """Helper to extract keywords using LLM."""
-    prompt = EXTRACT_KEYWORDS_PROMPT.format(query=query, current_date=datetime.now().strftime("%Y-%m-%d"))
+    extract_prompt = await get_system_prompt(KEYWORD_EXTRACTION_MODEL, "extract")
+    if extract_prompt:
+        prompt = extract_prompt.format(query=query, current_date=datetime.now().strftime("%Y-%m-%d"))
+    else:
+        prompt = "Summarize the following text into a list of keywords: " + query
     llm = SummarizingLLM(
         model=KEYWORD_EXTRACTION_MODEL,
         vllm_url=KEYWORD_EXTRACTION_VLLM_URL,
@@ -70,7 +70,7 @@ async def extract_keywords_from_query(query: str) -> List[str]:
     rake_keywords = extract_keywords_rake(query)
     return rake_keywords
 
-def augment_messages_with_search(
+async def augment_messages_with_search(
     original_messages: List[Dict[str, Any]],
     search_results_str: Optional[str]
 ) -> List[Dict[str, Any]]:
@@ -79,22 +79,24 @@ def augment_messages_with_search(
         # Return original if no results or no messages to augment
         return original_messages
 
-    # TODO: do proper prompt engineering for this
-    system_command = {
-        "role": "system",
-        "content": SEARCH_SYSTEM_PROMPT
-    }
-    system_information = {
-        "role": "system",
-        "name": "search_results",
-        "content": SEARCH_SYSTEM_INFORMATION_PROMPT.format(search_results_str=search_results_str)
-    }
+    search_prompt = await get_system_prompt(settings.SUMMARIZATION_MODEL, "search")
+    if search_prompt:
+        system_command = {
+            "role": "system",
+            "content": search_prompt
+        }
+    search_result_prompt = await get_system_prompt(settings.SUMMARIZATION_MODEL, "search_result")
+    if search_result_prompt:
+        system_information = {
+            "role": "system",
+            "content": search_result_prompt.format(search_results_str=search_results_str)
+        }
 
     last_msg_index = len(original_messages) - 1
     augmented_messages = (
         original_messages[:last_msg_index]
-        + [system_command] 
-        + [system_information]
+        + [system_command or None]
+        + [system_information or None]
         + [original_messages[last_msg_index]]
     )
 
