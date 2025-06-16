@@ -27,7 +27,7 @@ async def health_check():
 
 @app.get("/v1/models")
 async def models():
-    return JSONResponse(content={"data": [{"id": "mock-model", "max_model_len": 1000}]})
+    return JSONResponse(content={"data": [{"id": "mock-model", "created": 1718505600, "owned_by": "deepseek-ai", "object": "model"}]})
 
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request):

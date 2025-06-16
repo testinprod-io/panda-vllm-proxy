@@ -7,7 +7,7 @@ from ...api.helper.request_llm import arequest_llm, get_user_collection_name
 from ...api.helper.request_summary import call_summarization_llm
 from ...api.helper.streaming import create_streaming_response
 from ...logger import log
-from ...api.v1.models import LLMRequest
+from ...api.v1.schemas import LLMRequest
 from ...actions.pdf.utils import (
     get_multiple_pdf_base64_from_last_message,
     parse_text_from_pdf,
