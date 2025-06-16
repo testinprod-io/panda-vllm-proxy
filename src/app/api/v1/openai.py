@@ -36,7 +36,7 @@ async def stream_vllm_response(payload: LLMRequest, auth_info: AuthInfo) -> Resp
 
             response_from_llm = await arequest_llm(modified_request_body_str, stream=should_stream, user_id=auth_info.user_id, use_vector_db=True)
 
-        log.info(f"User sent request to LLM", extra={"user_id": auth_info.user_id, "request_type": "text/image"})
+        log.info(f"User sent request to LLM", extra={"user_id": auth_info.user_id, "request_type": "text/image", "is_api_key": auth_info.is_api_key})
 
         if isinstance(response_from_llm, JSONResponse):
             return response_from_llm
