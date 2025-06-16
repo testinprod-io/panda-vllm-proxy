@@ -17,6 +17,10 @@ http {
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
     add_header X-XSS-Protection "1; mode=block" always;
 
+    proxy_connect_timeout 60s;
+    proxy_read_timeout 180s;
+    proxy_send_timeout 180s;
+
     # redirect HTTP to HTTPS
     server {
         listen 80;
