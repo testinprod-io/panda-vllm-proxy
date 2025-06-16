@@ -4,7 +4,7 @@ from typing import List
 from ...api.helper.auth import verify_authorization_header
 from ...config import get_settings
 from ...logger import log
-from .models import SummaryResponse, LLMRequest, TextContent, ChatMessage
+from .schemas import SummaryResponse, LLMRequest, TextContent, ChatMessage
 from ...api.helper.request_summary import call_summarization_llm
 
 settings = get_settings()

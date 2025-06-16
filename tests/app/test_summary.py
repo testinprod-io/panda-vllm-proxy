@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 from tests.app.test_helpers import setup_test_environment, create_test_token
-from app.api.v1.models import LLMRequest, ChatMessage, TextContent
+from app.api.v1.schemas import LLMRequest, ChatMessage, TextContent
 
 setup_test_environment()
 

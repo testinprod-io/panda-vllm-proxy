@@ -3,7 +3,7 @@ from langchain_community.document_loaders.parsers import PyMuPDFParser, RapidOCR
 from langchain_core.documents.base import Blob
 from langchain_core.documents import Document
 
-from ...api.v1.models import ChatMessage, ContentPart, PdfContent, SenderTypeEnum
+from ...api.v1.schemas import ChatMessage, ContentPart, PdfContent, SenderTypeEnum
 from ...api.helper.get_system_prompt import get_system_prompt
 from ...config import get_settings
 
