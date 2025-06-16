@@ -14,7 +14,14 @@ from .get_system_prompt import get_system_prompt
 LLMSuccessResponse = Union[Dict[str, Any], List[Any]]
 THRESHOLD = 0.6
 
-async def arequest_llm(request_body: str, stream: bool = True, vllm_url: str = get_settings().VLLM_URL, user_id: str = None, use_vector_db: bool = False) -> Union[httpx.Response, JSONResponse, LLMSuccessResponse]:
+async def arequest_llm(
+    request_body: str,
+    stream: bool = True,
+    vllm_url: str = get_settings().VLLM_URL,
+    user_id: str | None = None,
+    is_api_key: bool = False,
+    use_vector_db: bool = False
+) -> Union[httpx.Response, JSONResponse, LLMSuccessResponse]:
     """
     Request LLM.
     - Returns httpx.Response if stream=True and status=200 (for caller to handle streaming).
@@ -25,7 +32,7 @@ async def arequest_llm(request_body: str, stream: bool = True, vllm_url: str = g
     response: Optional[httpx.Response] = None
 
     # Add system prompt to the request body
-    request_body = await _add_system_prompt(request_body)
+    request_body = await _add_system_prompt(request_body, is_api_key)
 
     # Apply vector DB if enabled
     if use_vector_db:
@@ -80,7 +87,14 @@ async def arequest_llm(request_body: str, stream: bool = True, vllm_url: str = g
             await client.aclose()
 
 
-def request_llm(request_body: str, stream: bool = True, vllm_url: str = get_settings().VLLM_URL) -> Union[httpx.Response, JSONResponse, LLMSuccessResponse]:
+def request_llm(
+    request_body: str,
+    stream: bool = True,
+    vllm_url: str = get_settings().VLLM_URL,
+    user_id: str | None = None,
+    is_api_key: bool = False,
+    use_vector_db: bool = False
+) -> Union[httpx.Response, JSONResponse, LLMSuccessResponse]:
     """
     Request LLM (Synchronous version).
     - Returns httpx.Response if stream=True and status=200 (for caller to handle streaming).
@@ -91,7 +105,7 @@ def request_llm(request_body: str, stream: bool = True, vllm_url: str = get_sett
     response: Optional[httpx.Response] = None
 
     # Add system prompt to the request body
-    request_body = asyncio.run(_add_system_prompt(request_body))
+    request_body = asyncio.run(_add_system_prompt(request_body, is_api_key))
 
     try:
         headers = { "Content-Type": "application/json" }
@@ -141,10 +155,10 @@ def request_llm(request_body: str, stream: bool = True, vllm_url: str = get_sett
         if client and not client.is_closed and not is_streaming_success:
             client.close()
 
-async def _add_system_prompt(request_body: str) -> str:
+async def _add_system_prompt(request_body: str, is_api_key: bool) -> str:
     """Add a system prompt to the messages."""
     request_body = json.loads(request_body)
-    default_prompt = await get_system_prompt(request_body["model"], "default")
+    default_prompt = await get_system_prompt(request_body["model"], "default", is_api_key)
     if default_prompt:
         request_body["messages"] = [{"role": "system", "content": default_prompt.format(current_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))}] + request_body["messages"]
     return json.dumps(request_body)

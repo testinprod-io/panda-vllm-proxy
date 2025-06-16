@@ -6,12 +6,12 @@ from ...logger import log
 
 _system_prompts_cache = TTLCache(maxsize=100, ttl=3)  # 5 minutes TTL
 
-async def get_system_prompt(model: str, usage: str) -> str:
+async def get_system_prompt(model: str, usage: str, is_api_key: bool = False) -> str:
     """
     Get the system prompt for the model and usage.
     """
     try:
-        cached_prompts = _system_prompts_cache.get(f"prompt-{model}-{usage}")
+        cached_prompts = _system_prompts_cache.get(f"prompt-{model}-{usage}-{is_api_key}")
         if cached_prompts is not None:
             log.info("Retrieved system prompts from cache")
             return cached_prompts
@@ -20,7 +20,7 @@ async def get_system_prompt(model: str, usage: str) -> str:
         api_key = get_settings().PANDA_APP_SERVER_TOKEN
         client = httpx.AsyncClient()
         response = await client.get(
-            f"{base_url}/system-prompt?model={model}&usage={usage}",
+            f"{base_url}/system-prompt?model={model}&usage={usage}&is_api_key={is_api_key}",
             headers={"X-API-Key": f"{api_key}"}
         )
 
@@ -34,7 +34,7 @@ async def get_system_prompt(model: str, usage: str) -> str:
             else:
                 log.error(f"Failed to get system prompt for model {model} and usage {usage}", response.text)
                 raise HTTPException(status_code=500, detail="Failed to get system prompt")
-        _system_prompts_cache[f"prompt-{model}-{usage}"] = response.json()["system_prompt"]
+        _system_prompts_cache[f"prompt-{model}-{usage}-{is_api_key}"] = response.json()["system_prompt"]
         return response.json()["system_prompt"]
     except Exception as e:
         log.error(f"Error getting system prompt for model {model} and usage {usage}: {str(e)}")
