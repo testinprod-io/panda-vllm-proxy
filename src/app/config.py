@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     PANDA_APP_SERVER: str
     PANDA_APP_SERVER_TOKEN: str
 
+    # API keys
+    API_KEYS: list[str]
+
     TLS_CERT_PATH: str | None = None
     TLS_CERT_PRIVATE_KEY_PATH: str | None = None
 

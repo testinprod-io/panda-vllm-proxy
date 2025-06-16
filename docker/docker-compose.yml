@@ -67,6 +67,7 @@ services:
       PANDA_APP_SERVER: https://app.panda.chat
       PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
       OMP_NUM_THREADS: 12
+      API_KEYS: ${API_KEYS}
     depends_on:
       - vllm-deepseek
 
@@ -102,6 +103,7 @@ services:
       PANDA_APP_SERVER: https://app.panda.chat
       PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
       OMP_NUM_THREADS: 12
+      API_KEYS: ${API_KEYS}
     depends_on:
       - vllm-llama
 
