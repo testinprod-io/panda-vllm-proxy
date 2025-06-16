@@ -65,6 +65,7 @@ services:
       HF_HOME: /tmp/huggingface/deepseek
       PANDA_APP_SERVER: https://app.panda.chat
       PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
+      API_KEYS: ${API_KEYS}
     depends_on:
       - vllm-deepseek
 
@@ -98,6 +99,7 @@ services:
       HF_HOME: /tmp/huggingface/llama
       PANDA_APP_SERVER: https://app.panda.chat
       PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
+      API_KEYS: ${API_KEYS}
     depends_on:
       - vllm-llama
 
