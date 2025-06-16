@@ -17,7 +17,7 @@ from langchain_core.messages import (
 from langchain_core.outputs import ChatGenerationChunk
 from pydantic import Field
 from ..api.helper.request_llm import request_llm 
-from ..api.v1.models import LLMSuccessResponse
+from ..api.v1.schemas import LLMSuccessResponse
 from ..logger import log
 from fastapi.responses import JSONResponse
 

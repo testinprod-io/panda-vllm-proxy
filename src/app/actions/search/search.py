@@ -7,7 +7,7 @@ from ...api.helper.request_llm import arequest_llm, get_user_collection_name
 from ...api.helper.request_summary import call_summarization_llm
 from ...api.helper.streaming import create_streaming_response
 from .utils import augment_messages_with_search, extract_keywords_from_query
-from ...api.v1.models import LLMRequest, TextContent, SenderTypeEnum 
+from ...api.v1.schemas import LLMRequest, TextContent, SenderTypeEnum 
 from ...rag import PandaWebRetriever
 from ...dependencies import get_milvus_wrapper
 
