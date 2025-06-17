@@ -1,0 +1,282 @@
+x-common: &common-config
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "100m"
+      max-file: "5"
+  restart: unless-stopped
+
+volumes:
+  shared-tmpfs:
+    driver: local
+    driver_opts:
+      type: "tmpfs"
+      device: "tmpfs"
+      o: "size=64m"
+
+services:
+  nginx:
+    <<: *common-config
+    image: testinprod/panda-nginx:0.0.6
+    container_name: nginx
+    ports:
+      - "443:443"
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - shared-tmpfs:/cert-dir
+    environment:
+      - PANDA_LLM_DOMAIN=llm-alpha.panda.chat
+      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil5.panda.chat"]
+      - PANDA_CERT_DIR=/cert-dir
+      - PANDA_ACME_URL=https://acme-v02.api.letsencrypt.org/directory
+      - PANDA_CF_API_TOKEN=${PANDA_CF_API_TOKEN}
+      - PANDA_CF_ZONE_ID=${PANDA_CF_ZONE_ID}
+      - PANDA_APP_SERVER=https://app.panda.chat
+      - PANDA_APP_SERVER_TOKEN=${PANDA_APP_SERVER_TOKEN}
+
+  vllm-proxy-deepseek:
+    <<: *common-config
+    image: testinprod/panda-vllm-proxy:0.0.3-rc5
+    container_name: vllm-proxy-deepseek
+    privileged: true
+    ports:
+      - "8000:8000"
+    volumes:
+      - shared-tmpfs:/cert-dir
+    cpuset: "56-103"
+    environment:
+      JWT_PUB_KEY: |
+        -----BEGIN PUBLIC KEY-----
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/VjJFvojh5S98Bf7F8pai1cwYCWUqh4D3W8yP5cKMVU6LM1XnQDdnmiqZg3H71z4y/sZohkJR5utIEASSqXZpg==
+        -----END PUBLIC KEY-----
+      WORKERS: 4
+      VLLM_URL: http://vllm-deepseek:8000/v1/chat/completions
+      VLLM_MODEL_URL: http://vllm-deepseek:8000/v1/models
+      SUMMARIZATION_VLLM_URL: http://vllm-llama:8000/v1/chat/completions
+      MODEL_NAME: ig1/r1-1776-AWQ
+      SUMMARIZATION_MODEL: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
+      MAX_MODEL_LENGTH: 65536
+      JWT_ALGORITHM: ES256
+      APP_ID: cmavhlsn7019ll20lsdkqf0so
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
+      MILVUS_URI: http://standalone:19530
+      CORS_ALLOWED_ORIGINS: "[\"*\"]"
+      TLS_CERT_PATH: /cert-dir/live/cert.pem
+      TLS_CERT_PRIVATE_KEY_PATH: /cert-dir/live/key.pem
+      HF_HOME: /tmp/huggingface/deepseek
+      PANDA_APP_SERVER: https://app.panda.chat
+      PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
+      OMP_NUM_THREADS: 12
+      API_KEYS: ${API_KEYS}
+    depends_on:
+      - vllm-deepseek
+
+  vllm-proxy-llama:
+    <<: *common-config
+    image: testinprod/panda-vllm-proxy:0.0.3-rc5
+    container_name: vllm-proxy-llama
+    privileged: true
+    ports:
+      - "8001:8000"
+    volumes:
+      - shared-tmpfs:/cert-dir
+    cpuset: "112-159"
+    environment:
+      JWT_PUB_KEY: |
+        -----BEGIN PUBLIC KEY-----
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/VjJFvojh5S98Bf7F8pai1cwYCWUqh4D3W8yP5cKMVU6LM1XnQDdnmiqZg3H71z4y/sZohkJR5utIEASSqXZpg==
+        -----END PUBLIC KEY-----
+      WORKERS: 4
+      VLLM_URL: http://vllm-llama:8000/v1/chat/completions
+      VLLM_MODEL_URL: http://vllm-llama:8000/v1/models
+      SUMMARIZATION_VLLM_URL: http://vllm-llama:8000/v1/chat/completions
+      MODEL_NAME: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
+      SUMMARIZATION_MODEL: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
+      JWT_ALGORITHM: ES256
+      APP_ID: cmavhlsn7019ll20lsdkqf0so
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
+      MILVUS_URI: http://standalone:19530
+      CORS_ALLOWED_ORIGINS: "[\"*\"]"
+      TLS_CERT_PATH: /cert-dir/live/cert.pem
+      TLS_CERT_PRIVATE_KEY_PATH: /cert-dir/live/key.pem
+      HF_HOME: /tmp/huggingface/llama
+      PANDA_APP_SERVER: https://app.panda.chat
+      PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
+      OMP_NUM_THREADS: 12
+      API_KEYS: ${API_KEYS}
+    depends_on:
+      - vllm-llama
+
+  vllm-deepseek:
+    <<: *common-config
+    image: testinprod/panda-vllm-ray:0.9.1-4
+    container_name: vllm-deepseek
+    runtime: nvidia
+    ports:
+      - "8002:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ "0","1","2","4","5","6" ]
+    cpuset: "0-47"
+    volumes:
+      - /var/volatile/dstack/persistent:/data
+    shm_size: "32g"
+    entrypoint: ["/bin/sh", "-c", "sleep 60 && /modify-tokenizer.sh && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
+    command: >
+      --model ig1/r1-1776-AWQ
+      --dtype auto
+      --tensor-parallel-size 2
+      --pipeline-parallel-size 3
+      --gpu-memory-utilization 0.95
+      --enable-chunked-prefill
+      --enable-reasoning  
+      --reasoning-parser deepseek_r1  
+      --max-model-len 65536
+      --download-dir /data/vllm-deepseek
+      --distributed-executor-backend ray
+      --disable-log-requests
+      --tokenizer=/tmp/tokenizer
+    environment:
+      - OMP_NUM_THREADS=16
+      - LLM_USE_V1=1
+      - HF_TOKEN=${HF_TOKEN}
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
+      - TOKENIZER_DIR=/tmp/tokenizer
+      - MODEL_ID=ig1/r1-1776-AWQ
+      - NEW_LENGTH=65536
+      - RAY_CGRAPH_submit_timeout=100
+      - RAY_CGRAPH_get_timeout=100
+
+  vllm-llama:
+    <<: *common-config
+    image: testinprod/panda-vllm-ray:0.9.1
+    container_name: vllm-llama
+    runtime: nvidia
+    ports:
+      - "8003:8000"
+    volumes:
+      - /var/volatile/dstack/persistent:/data
+    shm_size: "32g"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+              device_ids: [ "3", "7" ]
+    cpuset: "48-55,104-111"
+    entrypoint: ["/bin/sh", "-c", "sleep 60 && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
+    command: >
+      --model RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
+      --dtype auto
+      --max-model-len 100000
+      --tensor-parallel-size 2
+      --gpu-memory-utilization 0.95
+      --download-dir /data/vllm-llama
+      --distributed-executor-backend ray
+      --disable-log-requests
+    environment:
+      - OMP_NUM_THREADS=16
+      - LLM_USE_V1=1
+      - HF_TOKEN=${HF_TOKEN}
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
+      - RAY_CGRAPH_submit_timeout=100
+      - RAY_CGRAPH_get_timeout=100
+
+  etcd:
+    <<: *common-config
+    container_name: milvus-etcd
+    image: quay.io/coreos/etcd:v3.5.18
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - /var/volatile/dstack/persistent:/data
+    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /data/etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  minio:
+    <<: *common-config
+    container_name: milvus-minio
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    ports:
+      - "9001:9001"
+      - "9000:9000"
+    volumes:
+      - /var/volatile/dstack/persistent:/data
+    command: minio server /data/minio --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  standalone:
+    <<: *common-config
+    container_name: milvus-standalone
+    image: milvusdb/milvus:v2.5.12
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+    - seccomp:unconfined
+    environment:
+      MINIO_REGION: us-east-1
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    volumes:
+      - /var/volatile/dstack/persistent:/var/lib/milvus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    depends_on:
+      - "etcd"
+      - "minio"
+
+  alloy:
+    <<: *common-config
+    image: testinprod/panda-alloy:0.0.2-rc2
+    environment:
+      - PROMETHEUS_HOST=${PROMETHEUS_HOST}
+      - LOKI_HOST=${LOKI_HOST}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/rootfs:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    ports: ["12345:12345"]
+
+  nvidia-smi-exporter:
+    <<: *common-config
+    image: utkuozdemir/nvidia_gpu_exporter:1.3.1
+    container_name: nvidia-smi-exporter
+    restart: unless-stopped
+    ports:
+      - "9835:9835"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
