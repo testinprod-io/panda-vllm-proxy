@@ -17,7 +17,7 @@ volumes:
 services:
   nginx:
     <<: *common-config
-    image: testinprod/panda-nginx:0.0.5
+    image: testinprod/panda-nginx:0.0.6
     container_name: nginx
     ports:
       - "443:443"
@@ -26,7 +26,7 @@ services:
       - shared-tmpfs:/cert-dir
     environment:
       - PANDA_LLM_DOMAIN=llm-alpha.panda.chat
-      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil3.panda.chat"]
+      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil5.panda.chat"]
       - PANDA_CERT_DIR=/cert-dir
       - PANDA_ACME_URL=https://acme-v02.api.letsencrypt.org/directory
       - PANDA_CF_API_TOKEN=${PANDA_CF_API_TOKEN}
@@ -36,7 +36,7 @@ services:
 
   vllm-proxy-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.3-rc3
+    image: testinprod/panda-vllm-proxy:0.0.3-rc5
     container_name: vllm-proxy-deepseek
     privileged: true
     ports:
@@ -73,7 +73,7 @@ services:
 
   vllm-proxy-llama:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.3-rc3
+    image: testinprod/panda-vllm-proxy:0.0.3-rc5
     container_name: vllm-proxy-llama
     privileged: true
     ports:
