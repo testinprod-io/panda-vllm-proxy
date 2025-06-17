@@ -33,6 +33,7 @@ services:
       - PANDA_CF_ZONE_ID=${PANDA_CF_ZONE_ID}
       - PANDA_APP_SERVER=https://app.panda.chat
       - PANDA_APP_SERVER_TOKEN=${PANDA_APP_SERVER_TOKEN}
+      - ENVIRONMENT=production
 
   vllm-proxy-deepseek:
     <<: *common-config
@@ -256,6 +257,8 @@ services:
     environment:
       - PROMETHEUS_HOST=${PROMETHEUS_HOST}
       - LOKI_HOST=${LOKI_HOST}
+      - INSTANCE=cudo-h100-1
+      - ENVIRONMENT=production
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /:/rootfs:ro

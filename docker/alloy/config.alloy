@@ -42,7 +42,7 @@ prometheus.scrape "cadvisor" {
 
 prometheus.scrape "nvidia_smi_exporter" {
     targets = [
-        { __address__ = "nvidia-smi-exporter:9835", job = "nvidia-smi-exporter", instance = "cudo-h100-1", environment = "production", source_type = "guest" },
+        { __address__ = "nvidia-smi-exporter:9835", job = "nvidia-smi-exporter", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
     ]
 
     scrape_interval = "15s"
@@ -56,9 +56,9 @@ prometheus.scrape "nvidia_smi_exporter" {
 
 prometheus.scrape "metrics" {
     targets = [
-        { __address__ = "vllm-deepseek:8000", job = "vllm-deepseek", instance = "cudo-h100-1", environment = "production", source_type = "guest" },
-        { __address__ = "vllm-llama:8000", job = "vllm-llama", instance = "cudo-h100-1", environment = "production", source_type = "guest" },
-        { __address__ = "standalone:9091", job = "milvus", instance = "cudo-h100-1", environment = "production", source_type = "guest" },
+        { __address__ = "vllm-deepseek:8000", job = "vllm-deepseek", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
+        { __address__ = "vllm-llama:8000", job = "vllm-llama", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
+        { __address__ = "standalone:9091", job = "milvus", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
     ]
   
     scrape_interval = "15s"
@@ -98,12 +98,12 @@ discovery.relabel "getting_started" {
 
     rule {
         target_label = "instance"
-        replacement = "cudo-h100-1"
+        replacement = env("INSTANCE")
     }
 
     rule {
         target_label = "environment"
-        replacement = "production"
+        replacement = env("ENVIRONMENT")
     }
 
     rule {

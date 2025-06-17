@@ -12,6 +12,7 @@ required_vars=(
   PANDA_CF_ZONE_ID
   PANDA_APP_SERVER
   PANDA_APP_SERVER_TOKEN
+  ENVIRONMENT
 )
 
 for var in "${required_vars[@]}"; do
@@ -53,40 +54,42 @@ echo "Generated random keys: $HEX_KEY"
 
 HEX_KEY_HASH=$(echo -n $HEX_KEY | xxd -r -p | sha256sum | awk '{print $1}')
 
-MAX_RETRIES=60
-RETRY_INTERVAL=2
-RETRIES=0
-while [ $RETRIES -lt $MAX_RETRIES ]; do
-  RESPONSE=$(curl --silent --show-error --unix-socket /var/run/dstack.sock \
-            --write-out "HTTPSTATUS:%{http_code}" "http://localhost/GetQuote?report_data=0x${HEX_KEY_HASH}")
+if [ "$ENVIRONMENT" = "production" ]; then
+  MAX_RETRIES=60
+  RETRY_INTERVAL=2
+  RETRIES=0
+  while [ $RETRIES -lt $MAX_RETRIES ]; do
+    RESPONSE=$(curl --silent --show-error --unix-socket /var/run/dstack.sock \
+              --write-out "HTTPSTATUS:%{http_code}" "http://localhost/GetQuote?report_data=0x${HEX_KEY_HASH}")
 
-  HTTP_CODE=$(echo "$RESPONSE" | tr -d '\r' | sed -n 's/.*HTTPSTATUS:\([0-9]*\)$/\1/p')
-  QUOTE_RESPONSE=$(echo "$RESPONSE" | sed 's/HTTPSTATUS\:.*//g')
+    HTTP_CODE=$(echo "$RESPONSE" | tr -d '\r' | sed -n 's/.*HTTPSTATUS:\([0-9]*\)$/\1/p')
+    QUOTE_RESPONSE=$(echo "$RESPONSE" | sed 's/HTTPSTATUS\:.*//g')
 
-  if [ "$HTTP_CODE" = "200" ]; then
-    echo "Request succeeded with HTTP 200"
-    break
+    if [ "$HTTP_CODE" = "200" ]; then
+      echo "Request succeeded with HTTP 200"
+      break
+    fi
+
+    RETRIES=$((RETRIES + 1))
+    sleep $RETRY_INTERVAL
+  done
+
+  if [ $RETRIES -eq $MAX_RETRIES ]; then
+    echo "Failed: reached max retries ($MAX_RETRIES)"
+    exit 1
   fi
 
-  RETRIES=$((RETRIES + 1))
-  sleep $RETRY_INTERVAL
-done
+  QUOTE_REGISTER_REQUEST=$(echo "$QUOTE_RESPONSE" \
+    | jq --arg hex "$HEX_KEY" \
+        'del(.report_data) | .public_key = $hex')
 
-if [ $RETRIES -eq $MAX_RETRIES ]; then
-  echo "Failed: reached max retries ($MAX_RETRIES)"
-  exit 1
+  curl --fail -X POST "$PANDA_APP_SERVER/admin/tdxQuotes" \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: $PANDA_APP_SERVER_TOKEN" \
+      -d "$QUOTE_REGISTER_REQUEST"
+
+  echo "Registered attestation quote"
 fi
-
-QUOTE_REGISTER_REQUEST=$(echo "$QUOTE_RESPONSE" \
-  | jq --arg hex "$HEX_KEY" \
-       'del(.report_data) | .public_key = $hex')
-
-curl --fail -X POST "$PANDA_APP_SERVER/admin/tdxQuotes" \
-     -H "Content-Type: application/json" \
-     -H "X-API-Key: $PANDA_APP_SERVER_TOKEN" \
-     -d "$QUOTE_REGISTER_REQUEST"
-
-echo "Registered attestation quote"
 
 certbot renew --once -c /etc/certbot/certbot.toml
 

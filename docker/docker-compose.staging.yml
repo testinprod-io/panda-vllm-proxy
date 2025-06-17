@@ -25,14 +25,15 @@ services:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - shared-tmpfs:/cert-dir
     environment:
-      - PANDA_LLM_DOMAIN=llm-alpha.panda.chat
-      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil5.panda.chat"]
+      - PANDA_LLM_DOMAIN=llm-alpha.staging.panda.chat
+      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.staging.panda.chat", "nil5.staging.panda.chat"]
       - PANDA_CERT_DIR=/cert-dir
       - PANDA_ACME_URL=https://acme-v02.api.letsencrypt.org/directory
       - PANDA_CF_API_TOKEN=${PANDA_CF_API_TOKEN}
       - PANDA_CF_ZONE_ID=${PANDA_CF_ZONE_ID}
-      - PANDA_APP_SERVER=https://app.panda.chat
+      - PANDA_APP_SERVER=https://app.staging.panda.chat
       - PANDA_APP_SERVER_TOKEN=${PANDA_APP_SERVER_TOKEN}
+      - ENVIRONMENT=staging
 
   vllm-proxy-deepseek:
     <<: *common-config
@@ -47,9 +48,9 @@ services:
     environment:
       JWT_PUB_KEY: |
         -----BEGIN PUBLIC KEY-----
-        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/VjJFvojh5S98Bf7F8pai1cwYCWUqh4D3W8yP5cKMVU6LM1XnQDdnmiqZg3H71z4y/sZohkJR5utIEASSqXZpg==
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGvGT/EO1yLDOEJjADoeL2xAnSB8Bxh4ycukEkMpd5M5SD9GT1Pqrxj5nGM5bQ/TPz35qduZLMzF3EGhx8CqG6A==
         -----END PUBLIC KEY-----
-      WORKERS: 4
+      WORKERS: 2
       VLLM_URL: http://vllm-deepseek:8000/v1/chat/completions
       VLLM_MODEL_URL: http://vllm-deepseek:8000/v1/models
       SUMMARIZATION_VLLM_URL: http://vllm-llama:8000/v1/chat/completions
@@ -57,16 +58,16 @@ services:
       SUMMARIZATION_MODEL: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       MAX_MODEL_LENGTH: 65536
       JWT_ALGORITHM: ES256
-      APP_ID: cmavhlsn7019ll20lsdkqf0so
+      APP_ID: cm9i6pezy041iif0npn86ctjt
       BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
       MILVUS_URI: http://standalone:19530
       CORS_ALLOWED_ORIGINS: "[\"*\"]"
       TLS_CERT_PATH: /cert-dir/live/cert.pem
       TLS_CERT_PRIVATE_KEY_PATH: /cert-dir/live/key.pem
       HF_HOME: /tmp/huggingface/deepseek
-      PANDA_APP_SERVER: https://app.panda.chat
+      PANDA_APP_SERVER: https://app.staging.panda.chat
       PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
-      OMP_NUM_THREADS: 12
+      OMP_NUM_THREADS: 1
       API_KEYS: ${API_KEYS}
     depends_on:
       - vllm-deepseek
@@ -84,25 +85,25 @@ services:
     environment:
       JWT_PUB_KEY: |
         -----BEGIN PUBLIC KEY-----
-        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/VjJFvojh5S98Bf7F8pai1cwYCWUqh4D3W8yP5cKMVU6LM1XnQDdnmiqZg3H71z4y/sZohkJR5utIEASSqXZpg==
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGvGT/EO1yLDOEJjADoeL2xAnSB8Bxh4ycukEkMpd5M5SD9GT1Pqrxj5nGM5bQ/TPz35qduZLMzF3EGhx8CqG6A==
         -----END PUBLIC KEY-----
-      WORKERS: 4
+      WORKERS: 2
       VLLM_URL: http://vllm-llama:8000/v1/chat/completions
       VLLM_MODEL_URL: http://vllm-llama:8000/v1/models
       SUMMARIZATION_VLLM_URL: http://vllm-llama:8000/v1/chat/completions
       MODEL_NAME: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       SUMMARIZATION_MODEL: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       JWT_ALGORITHM: ES256
-      APP_ID: cmavhlsn7019ll20lsdkqf0so
+      APP_ID: cm9i6pezy041iif0npn86ctjt
       BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
       MILVUS_URI: http://standalone:19530
       CORS_ALLOWED_ORIGINS: "[\"*\"]"
       TLS_CERT_PATH: /cert-dir/live/cert.pem
       TLS_CERT_PRIVATE_KEY_PATH: /cert-dir/live/key.pem
       HF_HOME: /tmp/huggingface/llama
-      PANDA_APP_SERVER: https://app.panda.chat
+      PANDA_APP_SERVER: https://app.staging.panda.chat
       PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
-      OMP_NUM_THREADS: 12
+      OMP_NUM_THREADS: 1
       API_KEYS: ${API_KEYS}
     depends_on:
       - vllm-llama
@@ -120,17 +121,15 @@ services:
           devices:
             - driver: nvidia
               capabilities: [ gpu ]
-              device_ids: [ "0","1","2","4","5","6" ]
-    cpuset: "0-47"
+              device_ids: [ "0" ]
+    cpuset: "0-1"
     volumes:
       - /var/volatile/dstack/persistent:/data
-    shm_size: "32g"
+    shm_size: "4g"
     entrypoint: ["/bin/sh", "-c", "sleep 60 && /modify-tokenizer.sh && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
     command: >
       --model ig1/r1-1776-AWQ
       --dtype auto
-      --tensor-parallel-size 2
-      --pipeline-parallel-size 3
       --gpu-memory-utilization 0.95
       --enable-chunked-prefill
       --enable-reasoning  
@@ -141,7 +140,7 @@ services:
       --disable-log-requests
       --tokenizer=/tmp/tokenizer
     environment:
-      - OMP_NUM_THREADS=16
+      - OMP_NUM_THREADS=1
       - LLM_USE_V1=1
       - HF_TOKEN=${HF_TOKEN}
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
@@ -160,27 +159,26 @@ services:
       - "8003:8000"
     volumes:
       - /var/volatile/dstack/persistent:/data
-    shm_size: "32g"
+    shm_size: "4g"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               capabilities: [ gpu ]
-              device_ids: [ "3", "7" ]
-    cpuset: "48-55,104-111"
+              device_ids: [ "0" ]
+    cpuset: "2-3"
     entrypoint: ["/bin/sh", "-c", "sleep 60 && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
     command: >
       --model RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       --dtype auto
       --max-model-len 100000
-      --tensor-parallel-size 2
       --gpu-memory-utilization 0.95
       --download-dir /data/vllm-llama
       --distributed-executor-backend ray
       --disable-log-requests
     environment:
-      - OMP_NUM_THREADS=16
+      - OMP_NUM_THREADS=1
       - LLM_USE_V1=1
       - HF_TOKEN=${HF_TOKEN}
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
@@ -256,6 +254,8 @@ services:
     environment:
       - PROMETHEUS_HOST=${PROMETHEUS_HOST}
       - LOKI_HOST=${LOKI_HOST}
+      - INSTANCE=staging-t4-1
+      - ENVIRONMENT=staging
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /:/rootfs:ro
