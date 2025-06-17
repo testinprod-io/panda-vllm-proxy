@@ -26,7 +26,7 @@ services:
       - shared-tmpfs:/cert-dir
     environment:
       - PANDA_LLM_DOMAIN=llm-alpha.panda.chat
-      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil3.panda.chat"]
+      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil4.panda.chat"]
       - PANDA_CERT_DIR=/cert-dir
       - PANDA_ACME_URL=https://acme-v02.api.letsencrypt.org/directory
       - PANDA_CF_API_TOKEN=${PANDA_CF_API_TOKEN}
