@@ -17,7 +17,7 @@ volumes:
 services:
   nginx:
     <<: *common-config
-    image: testinprod/panda-nginx:0.0.6
+    image: testinprod/panda-nginx:0.0.7
     container_name: nginx
     ports:
       - "443:443"
@@ -253,7 +253,7 @@ services:
 
   alloy:
     <<: *common-config
-    image: testinprod/panda-alloy:0.0.2-rc2
+    image: testinprod/panda-alloy:0.0.2-rc3
     environment:
       - PROMETHEUS_HOST=${PROMETHEUS_HOST}
       - LOKI_HOST=${LOKI_HOST}
