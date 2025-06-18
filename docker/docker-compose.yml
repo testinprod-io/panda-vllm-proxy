@@ -132,7 +132,7 @@ services:
       --dtype auto
       --tensor-parallel-size 2
       --pipeline-parallel-size 3
-      --gpu-memory-utilization 0.95
+      --gpu-memory-utilization 0.85
       --enable-chunked-prefill
       --enable-reasoning  
       --reasoning-parser deepseek_r1  
@@ -151,6 +151,7 @@ services:
       - NEW_LENGTH=65536
       - RAY_CGRAPH_submit_timeout=100
       - RAY_CGRAPH_get_timeout=100
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
   vllm-llama:
     <<: *common-config
@@ -176,7 +177,7 @@ services:
       --dtype auto
       --max-model-len 100000
       --tensor-parallel-size 2
-      --gpu-memory-utilization 0.95
+      --gpu-memory-utilization 0.85
       --download-dir /data/vllm-llama
       --distributed-executor-backend ray
       --disable-log-requests
@@ -187,6 +188,7 @@ services:
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
       - RAY_CGRAPH_submit_timeout=100
       - RAY_CGRAPH_get_timeout=100
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
   etcd:
     <<: *common-config
