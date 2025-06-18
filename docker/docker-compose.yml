@@ -26,7 +26,7 @@ services:
       - shared-tmpfs:/cert-dir
     environment:
       - PANDA_LLM_DOMAIN=llm-alpha.panda.chat
-      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil5.panda.chat"]
+      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil8.panda.chat"]
       - PANDA_CERT_DIR=/cert-dir
       - PANDA_ACME_URL=https://acme-v02.api.letsencrypt.org/directory
       - PANDA_CF_API_TOKEN=${PANDA_CF_API_TOKEN}
@@ -37,7 +37,7 @@ services:
 
   vllm-proxy-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.3-rc5
+    image: testinprod/panda-vllm-proxy:0.0.4
     container_name: vllm-proxy-deepseek
     privileged: true
     ports:
@@ -74,7 +74,7 @@ services:
 
   vllm-proxy-llama:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.3-rc5
+    image: testinprod/panda-vllm-proxy:0.0.4
     container_name: vllm-proxy-llama
     privileged: true
     ports:
@@ -132,7 +132,7 @@ services:
       --dtype auto
       --tensor-parallel-size 2
       --pipeline-parallel-size 3
-      --gpu-memory-utilization 0.95
+      --gpu-memory-utilization 0.93
       --enable-chunked-prefill
       --enable-reasoning  
       --reasoning-parser deepseek_r1  
@@ -141,6 +141,7 @@ services:
       --distributed-executor-backend ray
       --disable-log-requests
       --tokenizer=/tmp/tokenizer
+      --swap-space=8
     environment:
       - OMP_NUM_THREADS=16
       - LLM_USE_V1=1
@@ -176,10 +177,11 @@ services:
       --dtype auto
       --max-model-len 100000
       --tensor-parallel-size 2
-      --gpu-memory-utilization 0.95
+      --gpu-memory-utilization 0.93
       --download-dir /data/vllm-llama
       --distributed-executor-backend ray
       --disable-log-requests
+      --swap-space=8
     environment:
       - OMP_NUM_THREADS=16
       - LLM_USE_V1=1
