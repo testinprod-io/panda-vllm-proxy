@@ -132,7 +132,7 @@ services:
       --dtype auto
       --tensor-parallel-size 2
       --pipeline-parallel-size 3
-      --gpu-memory-utilization 0.85
+      --gpu-memory-utilization 0.90
       --enable-chunked-prefill
       --enable-reasoning  
       --reasoning-parser deepseek_r1  
@@ -177,7 +177,7 @@ services:
       --dtype auto
       --max-model-len 100000
       --tensor-parallel-size 2
-      --gpu-memory-utilization 0.85
+      --gpu-memory-utilization 0.90
       --download-dir /data/vllm-llama
       --distributed-executor-backend ray
       --disable-log-requests
