@@ -1,5 +1,6 @@
 import os
 import time
+import secrets
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -15,6 +16,9 @@ from .logger import log
 CHALLENGE_HEADER = "Panda-Challenge"
 PUBLIC_KEY_HEADER = "Panda-Public-Key"
 SIGNATURE_HEADER = "Panda-Signature"
+SERVER_RANDOM_HEADER = "Panda-Server-Random"
+TS_HEADER = "Panda-Timestamp"
+PROOF_PREFIX = "PANDA_PROOF_V0"
 AUTH_HEADER = "Authorization"
 MAX_RETRIES = 20
 
@@ -64,5 +68,11 @@ async def prove_server_identity(request: Request, call_next):
             log.info("No challenge of auth header. skipping cert signing")
             return resp
 
-    resp.headers[SIGNATURE_HEADER] = private_key.sign(challenge.encode("utf-8"), ec.ECDSA(hashes.SHA256())).hex()
+    server_random = secrets.token_hex(32)
+    ts = str(int(time.time()))
+    proof = f"{PROOF_PREFIX}|{ts}|{server_random}|{challenge}"
+
+    resp.headers[SERVER_RANDOM_HEADER] = server_random
+    resp.headers[TS_HEADER] = ts
+    resp.headers[SIGNATURE_HEADER] = private_key.sign(proof.encode("utf-8"), ec.ECDSA(hashes.SHA256())).hex()
     return resp

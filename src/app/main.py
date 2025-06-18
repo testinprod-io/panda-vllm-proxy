@@ -11,7 +11,7 @@ from .api import router as api_router
 from .api.response.response import ok, error, unexpect_error
 from .logger import log
 from .dependencies import get_cors_origins, get_milvus_wrapper, get_reranker
-from .middleware import prove_server_identity, PUBLIC_KEY_HEADER, SIGNATURE_HEADER
+from .middleware import prove_server_identity, PUBLIC_KEY_HEADER, SIGNATURE_HEADER, SERVER_RANDOM_HEADER, TS_HEADER
 from .config import get_settings
 
 @asynccontextmanager
@@ -50,7 +50,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=[PUBLIC_KEY_HEADER, SIGNATURE_HEADER],
+    expose_headers=[PUBLIC_KEY_HEADER, SIGNATURE_HEADER, SERVER_RANDOM_HEADER, TS_HEADER],
 )
 
 app.middleware("http")(prove_server_identity)
