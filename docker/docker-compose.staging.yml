@@ -150,7 +150,6 @@ services:
       - NEW_LENGTH=65536
       - RAY_CGRAPH_submit_timeout=100
       - RAY_CGRAPH_get_timeout=100
-      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
   vllm-llama:
     <<: *common-config
@@ -186,7 +185,6 @@ services:
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
       - RAY_CGRAPH_submit_timeout=100
       - RAY_CGRAPH_get_timeout=100
-      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
   etcd:
     <<: *common-config
