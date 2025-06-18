@@ -132,7 +132,7 @@ services:
       --dtype auto
       --tensor-parallel-size 2
       --pipeline-parallel-size 3
-      --gpu-memory-utilization 0.90
+      --gpu-memory-utilization 0.93
       --enable-chunked-prefill
       --enable-reasoning  
       --reasoning-parser deepseek_r1  
@@ -141,6 +141,7 @@ services:
       --distributed-executor-backend ray
       --disable-log-requests
       --tokenizer=/tmp/tokenizer
+      --swap-space=8
     environment:
       - OMP_NUM_THREADS=16
       - LLM_USE_V1=1
@@ -151,7 +152,7 @@ services:
       - NEW_LENGTH=65536
       - RAY_CGRAPH_submit_timeout=100
       - RAY_CGRAPH_get_timeout=100
-      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - PYTORCH_CUDA_ALLOC_CONF=backend:cudaMallocAsync,expandable_segments:True
 
   vllm-llama:
     <<: *common-config
@@ -177,10 +178,11 @@ services:
       --dtype auto
       --max-model-len 100000
       --tensor-parallel-size 2
-      --gpu-memory-utilization 0.90
+      --gpu-memory-utilization 0.93
       --download-dir /data/vllm-llama
       --distributed-executor-backend ray
       --disable-log-requests
+      --swap-space=8
     environment:
       - OMP_NUM_THREADS=16
       - LLM_USE_V1=1
@@ -188,7 +190,7 @@ services:
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
       - RAY_CGRAPH_submit_timeout=100
       - RAY_CGRAPH_get_timeout=100
-      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - PYTORCH_CUDA_ALLOC_CONF=backend:cudaMallocAsync,expandable_segments:True
 
   etcd:
     <<: *common-config
