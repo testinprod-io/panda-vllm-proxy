@@ -67,6 +67,18 @@ async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse
         search_results
     )
 
+    # Create background task to handle vector DB completion
+    async def handle_vector_db_completion():
+        try:
+            await from_doc_job
+            log.info(f"Successfully saved search results to vector DB in background.")
+        except Exception as e:
+            log.error(f"Error saving search results to vector DB in background: {e}", exc_info=True)
+        
+    # Start vector DB operation in background
+    asyncio.create_task(handle_vector_db_completion())
+    log.info(f"Vector DB operation started in background, continuing with LLM request.")
+
     # Summarize the search results with the LLM
     search_results_str = "\n\n".join([result.page_content for result in search_results])
     search_results_str = await call_summarization_llm(search_results_str, 1000)
@@ -82,10 +94,6 @@ async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse
     augmented_request_dict.pop("use_search", None)
     
     modified_request_body_json_str = json.dumps(augmented_request_dict)
-
-    # Wait for the from_doc_job to complete
-    await from_doc_job
-    log.info(f"Successfully saved search results to vector DB.")
 
     log.info(f"User sent request to LLM", extra={"user_id": user_id, "request_type": "search"})
 
