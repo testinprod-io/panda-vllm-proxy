@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from langchain_community.document_loaders.parsers import PyMuPDFParser, RapidOCRBlobParser
 from langchain_core.documents.base import Blob
 from langchain_core.documents import Document
+import fitz
 
 from ...api.v1.schemas import ChatMessage, ContentPart, PdfContent, SenderTypeEnum
 from ...api.helper.get_system_prompt import get_system_prompt
@@ -82,8 +83,6 @@ def parse_text_from_pdf_chunked(pdf_bytes: bytes, *, chunk_size: int = 10, enabl
         chunk_size: Number of pages to process per chunk
         enable_ocr: Whether OCR should be enabled when parsing each chunk
     """
-    import fitz
-    
     pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     total_pages = pdf_doc.page_count
     pdf_doc.close()

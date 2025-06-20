@@ -2,6 +2,7 @@ import base64
 import json
 import asyncio
 from fastapi.responses import StreamingResponse, JSONResponse
+import fitz
 
 from ...api.helper.request_llm import arequest_llm, get_user_collection_name
 from ...api.helper.request_summary import call_summarization_llm
@@ -39,8 +40,6 @@ async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
         async def parse_single_pdf(i: int, pdf_base64_string: str):
             # Parse the PDF using PyMuPDF and RapidOCR in executor
             pdf_bytes = base64.b64decode(pdf_base64_string)
-
-            import fitz
 
             pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
             page_count = max(pdf_doc.page_count, 1)
