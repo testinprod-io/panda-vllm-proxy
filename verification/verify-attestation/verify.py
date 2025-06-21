@@ -52,7 +52,7 @@ args = parser.parse_args()
 console.print("[bold]🔍 Panda Attestation verification[/]")
 
 cert_tag = args.cert_pubkey[:9]
-print_step(1, 4, f"Finding files for pubkey: {cert_tag}")
+print_step(1, 7, f"Finding files for pubkey: {cert_tag}")
 
 compose_file_path = None
 attestation_file_path = None
@@ -77,7 +77,7 @@ print_result(True, f"Found attestation file: {os.path.basename(attestation_file_
 with open(attestation_file_path) as attestation_file:
     attestation = json.load(attestation_file)
 
-print_step(2, 4, "Verify compose hash")
+print_step(2, 7, "Verify compose hash")
 with open(compose_file_path, "rb") as compose_file:
     compose_hash = hashlib.sha256(compose_file.read()).hexdigest()
     if compose_hash != attestation["compose_hash"]:
@@ -86,7 +86,7 @@ with open(compose_file_path, "rb") as compose_file:
 print_result(True, f"Passed")
 
 
-print_step(2, 4, "Verify JWT")
+print_step(3, 7, "Verify JWT")
 with open(os.path.join(BASE_DIR, "trust-authority-certs.txt"), "r") as f:
     keys = json.load(f)
 
@@ -103,8 +103,14 @@ if jwt_payload["tdx"]["tdx_collateral"]["quotehash"] != hashlib.sha256(bytes.fro
     exit(1)
 print_result(True, "Passed")
 
+print_step(4, 7, "Verify report data")
+if bytes.fromhex(jwt_payload["tdx"]["tdx_report_data"]) != hashlib.sha256(bytes.fromhex(attestation["public_key"])).digest() + b'\00'*32:
+    print_result(False, "Report data mismatch")
+    exit(1)
+print_result(True, "Passed")
 
-print_step(3, 4, "Replay event logs")
+
+print_step(5, 7, "Replay event logs")
 event_log = attestation["event_log"]
 rtmr = ["0"*96] * 4
 for event in event_log:
@@ -117,7 +123,7 @@ for i in range(4):
 print_result(True, "Passed")
 
 
-print_step(3, 4, "Verify OS image hash")
+print_step(6, 7, "Verify OS image hash")
 os_image_hash = ""
 
 for event in event_log:
@@ -136,7 +142,7 @@ if os_image_hash != attestation["os_image_hash"]:
 print_result(True, f"Passed")
 
 
-print_step(4, 4, "Verify on-chain consistency")
+print_step(7, 7, "Verify on-chain consistency")
 user_data = attestation["quote"][28*2:48*2]
 device_id = hashlib.sha256(bytes.fromhex(user_data)).hexdigest()
 
