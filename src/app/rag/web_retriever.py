@@ -36,13 +36,13 @@ class PandaWebRetriever(BaseRetriever):
 
     @classmethod
     def initialize(
-            cls,
-            vector_store: Optional[Any] = None,
-            num_search_results: int = 1,
-            max_urls_to_process: int = 5,
-            text_splitter: Optional[TextSplitter] = None,
-            **kwargs,
-        ) -> "PandaWebRetriever":
+        cls,
+        vector_store: Optional[Any] = None,
+        num_search_results: int = 1,
+        max_urls_to_process: int = 5,
+        text_splitter: Optional[TextSplitter] = None,
+        **kwargs,
+    ) -> "PandaWebRetriever":
         instance_kwargs = {
             "vector_store": vector_store,
             "num_search_results": num_search_results,
@@ -105,9 +105,8 @@ class PandaWebRetriever(BaseRetriever):
             url_to_look, 
             ignore_load_errors=True,
             requests_kwargs={
-                # To avoid 400 error due to cookie size
-                "max_line_size": 16384,
-                "max_field_size": 16384,
+                "max_line_size": 8192,
+                "max_field_size": 8192,
                 "timeout": timeout,
             }
         )

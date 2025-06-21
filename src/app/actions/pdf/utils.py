@@ -1,7 +1,9 @@
-from typing import List, Dict, Any
+import concurrent.futures
+from typing import List, Dict, Any, Optional
 from langchain_community.document_loaders.parsers import PyMuPDFParser, RapidOCRBlobParser
 from langchain_core.documents.base import Blob
 from langchain_core.documents import Document
+import fitz
 
 from ...api.v1.schemas import ChatMessage, ContentPart, PdfContent, SenderTypeEnum
 from ...api.helper.get_system_prompt import get_system_prompt
@@ -38,22 +40,85 @@ def get_multiple_pdf_base64_from_last_message(payload: ChatMessage) -> List[str]
                 raise ValueError("Unexpected PDF URL format.")
     return url_list
 
-def parse_text_from_pdf(pdf_bytes: bytes) -> List[Document]:
-    """Extracts text content from PDF bytes using PyPDF."""
+def parse_text_from_pdf(pdf_bytes: bytes, enable_ocr: bool = True, max_pages: Optional[int] = None) -> List[Document]:
+    """
+    Extracts text content from PDF bytes using PyMuPDF with optimized settings.
+    
+    Args:
+        pdf_bytes: PDF file bytes
+        enable_ocr: Whether to enable OCR for images (slower but more accurate)
+        max_pages: Maximum number of pages to process (None for all pages)
+    """
+    images_parser = RapidOCRBlobParser() if enable_ocr else None
+    
     parser = PyMuPDFParser(
         mode="page",
-        pages_delimiter = "\n\f",
-        images_parser=RapidOCRBlobParser(),
-        extract_tables="markdown"
+        pages_delimiter="\n\f",
+        images_parser=images_parser,
+        extract_tables="markdown" if enable_ocr else None,
+        extract_images=enable_ocr
     )
+    
     pdf_blob = Blob.from_data(pdf_bytes)
-
-    # Lazy parse the PDF blob, for memory efficiency
+    
+    # Lazy parse the PDF blob for memory efficiency
     docs_lazy = parser.lazy_parse(pdf_blob)
     docs = []
-    for doc in docs_lazy:
+    
+    # Process pages with optional limit
+    for i, doc in enumerate(docs_lazy):
+        if max_pages and i >= max_pages:
+            break
         docs.append(doc)
     return docs
+
+def parse_text_from_pdf_chunked(pdf_bytes: bytes, *, chunk_size: int = 10, enable_ocr: bool = True) -> List[Document]:
+    """
+    Parse PDF in chunks using parallel processing for large PDFs.
+    This variant allows selectively enabling or disabling OCR based on
+    heuristics computed outside of this function.
+
+    Args:
+        pdf_bytes: PDF file bytes
+        chunk_size: Number of pages to process per chunk
+        enable_ocr: Whether OCR should be enabled when parsing each chunk
+    """
+    pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    total_pages = pdf_doc.page_count
+    pdf_doc.close()
+    
+    if total_pages <= chunk_size:
+        return parse_text_from_pdf(pdf_bytes, enable_ocr=enable_ocr)
+    # Large PDF, process in parallel chunks
+    def process_chunk(start_page: int, end_page: int) -> List[Document]:
+        # Create a new PDF with only the chunk pages
+        chunk_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        new_doc = fitz.open()
+        
+        for page_num in range(start_page, min(end_page, total_pages)):
+            new_doc.insert_pdf(chunk_doc, from_page=page_num, to_page=page_num)
+        
+        chunk_bytes = new_doc.write()
+        chunk_doc.close()
+        new_doc.close()
+        
+        return parse_text_from_pdf(chunk_bytes, enable_ocr=enable_ocr)
+    
+    # Create chunks
+    chunks = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=get_settings().PDF_CHUNK_CONCURRENCY_LIMIT) as executor:
+        futures = []
+        for start in range(0, total_pages, chunk_size):
+            end = min(start + chunk_size, total_pages)
+            future = executor.submit(process_chunk, start, end)
+            futures.append(future)
+        
+        # Collect results
+        for future in concurrent.futures.as_completed(futures):
+            chunk_docs = future.result()
+            chunks.extend(chunk_docs)
+    
+    return chunks
 
 async def augment_messages_with_pdf(
     original_messages: List[Dict[str, Any]], 

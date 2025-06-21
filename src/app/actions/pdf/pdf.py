@@ -2,6 +2,7 @@ import base64
 import json
 import asyncio
 from fastapi.responses import StreamingResponse, JSONResponse
+import fitz
 
 from ...api.helper.request_llm import arequest_llm, get_user_collection_name
 from ...api.helper.request_summary import call_summarization_llm
@@ -11,10 +12,12 @@ from ...api.v1.schemas import LLMRequest
 from ...actions.pdf.utils import (
     get_multiple_pdf_base64_from_last_message,
     parse_text_from_pdf,
+    parse_text_from_pdf_chunked,
     clean_message_of_pdf_urls,
     augment_messages_with_pdf,
 )
 from ...dependencies import get_milvus_wrapper
+from ...config import get_settings
 
 async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
     """
@@ -34,11 +37,56 @@ async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
     payload.messages[-1] = clean_message_of_pdf_urls(payload.messages[-1])
 
     try:
-        docs_list = []
-        for pdf_base64_string in pdf_base64_list:
-            # Parse the PDF using PyMuPDF and RapidOCR
+        async def parse_single_pdf(i: int, pdf_base64_string: str):
+            # Parse the PDF using PyMuPDF and RapidOCR in executor
             pdf_bytes = base64.b64decode(pdf_base64_string)
-            docs_list.append(parse_text_from_pdf(pdf_bytes))
+
+            pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            page_count = max(pdf_doc.page_count, 1)
+            avg_page_size_kb = (len(pdf_bytes) / page_count) / 1024
+            pdf_doc.close()
+
+            settings = get_settings()
+            needs_ocr = avg_page_size_kb > settings.PDF_PAGE_OCR_THRESHOLD_KB
+
+            log.info(
+                f"PDF {i+1}: avg_page_size={avg_page_size_kb:.1f}KB – needs_ocr={needs_ocr}"
+            )
+
+            loop = asyncio.get_running_loop()
+
+            # Decide parsing approach based on *document* size to optimise
+            # performance, but OCR decision is driven by `needs_ocr`.
+            pdf_size_mb = len(pdf_bytes) / (1024 * 1024)
+
+            if pdf_size_mb < settings.PDF_CHUNK_MODE_THRESHOLD_MB:
+                log.info(f"PDF {i+1}: Using standard parsing mode")
+                parse_func = lambda: parse_text_from_pdf(
+                    pdf_bytes,
+                    enable_ocr=needs_ocr,
+                    max_pages=settings.PDF_MAX_PAGES,
+                )
+                return await loop.run_in_executor(None, parse_func)
+            else:
+                log.info(
+                    f"PDF {i+1}: Using chunked parallel processing (chunk_size={settings.PDF_CHUNK_SIZE})"
+                )
+                parse_func = lambda: parse_text_from_pdf_chunked(
+                    pdf_bytes,
+                    chunk_size=settings.PDF_CHUNK_SIZE,
+                    enable_ocr=needs_ocr,
+                )
+                return await loop.run_in_executor(None, parse_func)
+    
+        # Create tasks for all PDFs to process in parallel
+        pdf_tasks = [
+            parse_single_pdf(i, pdf_base64_string) 
+            for i, pdf_base64_string in enumerate(pdf_base64_list)
+        ]
+        
+        # Wait for all PDF parsing to complete in parallel
+        docs_list = await asyncio.gather(*pdf_tasks)
+        log.info(f"Completed parsing {len(docs_list)} PDFs in parallel.")
 
         # Save parsed results to vector DB
         user_collection_name = get_user_collection_name(user_id)
@@ -54,11 +102,23 @@ async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
             ))
         log.info(f"Started {len(from_doc_jobs)} jobs to save parsed PDF results to vector DB.")
 
+        # Create background task to handle vector DB completion
+        async def handle_vector_db_completion():
+            try:
+                await asyncio.gather(*from_doc_jobs)
+                log.info(f"Successfully saved {len(docs_list)} PDF results to vector DB in background.")
+            except Exception as e:
+                log.error(f"Error saving PDF results to vector DB in background: {e}", exc_info=True)
+
+        # Start vector DB operations in background
+        asyncio.create_task(handle_vector_db_completion())
+        log.info(f"Vector DB operations started in background, continuing with LLM request.")
+
         # Summarize the PDF
         parse_results_str = ""
         for docs in docs_list:
             parse_results_str += "\n\n".join([doc.page_content for doc in docs])
-        parse_results_str = await call_summarization_llm(parse_results_str, 5000)
+        parse_results_str = await call_summarization_llm(parse_results_str, 500)
         log.info(f"Summarized PDF with LLM.")
 
         # Augment the request with the parsed results
@@ -71,10 +131,6 @@ async def pdf_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
         
         modified_request_body_json_str = json.dumps(augmented_request_dict)
         
-        # Wait for the from_doc_jobs to complete
-        await asyncio.gather(*from_doc_jobs)    
-        log.info(f"Successfully saved {len(docs_list)} PDF results to vector DB.")
-
         log.info(f"User sent request to LLM", extra={"user_id": user_id, "request_type": "pdf"})
 
         llm_response = await arequest_llm(modified_request_body_json_str, user_id=user_id, use_vector_db=True)

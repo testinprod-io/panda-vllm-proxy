@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import asyncio
 
 from ...config import get_settings
 from ...logger import log
@@ -11,12 +12,14 @@ settings = get_settings()
 SUMMARIZATION_MODEL = settings.SUMMARIZATION_MODEL or settings.MODEL_NAME
 SUMMARIZATION_VLLM_URL = settings.SUMMARIZATION_VLLM_URL
 
-SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS = 75000
+SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS = settings.SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS
 PROMPT_OVERHEAD_TOKENS = 150
 CHARS_PER_TOKEN_HEURISTIC = 3
 
 MAX_TEXT_TOKENS_FOR_LLM = SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS - PROMPT_OVERHEAD_TOKENS
 CHARACTER_CHUNK_SIZE = MAX_TEXT_TOKENS_FOR_LLM * CHARS_PER_TOKEN_HEURISTIC
+
+SUMMARIZATION_CONCURRENCY_LIMIT = settings.SUMMARIZATION_CONCURRENCY_LIMIT
 
 async def generate_request_prompt(text_to_summarize: str, target_word_count: int) -> str:
     """Generates the prompt for summarizing a piece of text."""
@@ -71,14 +74,18 @@ async def call_summarization_llm(text: str, max_tokens_for_final_summary: int) -
         # Distribute the final desired word count among chunks
         approx_words_per_chunk_summary = max(50, max_tokens_for_final_summary // len(text_chunks))
 
-        # Process all chunks
-        log.info(f"Starting summarization of {len(text_chunks)} chunks...")
-        summarization_results = []
-        for i, chunk in enumerate(text_chunks):
-            log.info(f"Summarizing chunk {i+1}/{len(text_chunks)}")
-            # Send request sequentially, to acquire some capacity for other requests
-            summarization_result = await _summarize_single_chunk(chunk, approx_words_per_chunk_summary)
-            summarization_results.append(summarization_result)
+        # Process all chunks in parallel but cap concurrency with a semaphore
+        log.info(f"Starting summarization of {len(text_chunks)} chunks (max concurrency {SUMMARIZATION_CONCURRENCY_LIMIT}) …")
+
+        semaphore = asyncio.Semaphore(SUMMARIZATION_CONCURRENCY_LIMIT)
+
+        async def summarize_with_limit(idx: int, chunk_text: str):
+            async with semaphore:
+                log.info(f"Summarizing chunk {idx+1}/{len(text_chunks)}")
+                return await _summarize_single_chunk(chunk_text, approx_words_per_chunk_summary)
+
+        tasks = [asyncio.create_task(summarize_with_limit(i, chunk)) for i, chunk in enumerate(text_chunks)]
+        summarization_results = await asyncio.gather(*tasks)
         
         # Filter successful summaries and handle exceptions
         chunk_summaries = []

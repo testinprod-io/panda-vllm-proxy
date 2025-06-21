@@ -34,6 +34,17 @@ class Settings(BaseSettings):
     TLS_CERT_PATH: str | None = None
     TLS_CERT_PRIVATE_KEY_PATH: str | None = None
 
+    # PDF Processing Configuration
+    PDF_MAX_PAGES: Optional[int] = None
+    PDF_CHUNK_SIZE: int = 10
+    PDF_CHUNK_CONCURRENCY_LIMIT: int = 8
+    PDF_CHUNK_MODE_THRESHOLD_MB: float = 5.0
+    PDF_PAGE_OCR_THRESHOLD_KB: int = 150
+
+    # Summarisation
+    SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS: int = 75000
+    SUMMARIZATION_CONCURRENCY_LIMIT: int = 2
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True

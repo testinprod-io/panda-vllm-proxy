@@ -12,14 +12,25 @@ services:
     depends_on:
       - mock_vllm
     environment:
-      - VLLM_URL=http://mock_vllm:8001/v1/chat/completions
-      - SUMMARIZATION_VLLM_URL=http://mock_vllm:8001
-      - MODEL_NAME=MOCK_VLLM
-      - JWT_ALGORITHM=ES256
-      - JWT_PUB_KEY=""
-      - APP_ID=""
-      - TLS_CERT_PATH=/tmp/cert/cert.pem
-      - TLS_CERT_PRIVATE_KEY_PATH=/tmp/cert/key.pem
+      VLLM_URL: http://mock_vllm:8001/v1/chat/completions
+      VLLM_MODEL_URL: http://mock_vllm:8001/v1/models
+      SUMMARIZATION_VLLM_URL: http://mock_vllm:8001
+      MODEL_NAME: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+      SUMMARIZATION_MODEL: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+      JWT_ALGORITHM: ES256
+      APP_ID: cm9i6pezy041iif0npn86ctjt
+      TLS_CERT_PATH: /tmp/cert/cert.pem
+      TLS_CERT_PRIVATE_KEY_PATH: /tmp/cert/key.pem
+      JWT_PUB_KEY: |
+        -----BEGIN PUBLIC KEY-----
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGvGT/EO1yLDOEJjADoeL2xAnSB8Bxh4ycukEkMpd5M5SD9GT1Pqrxj5nGM5bQ/TPz35qduZLMzF3EGhx8CqG6A==
+        -----END PUBLIC KEY-----
+      PANDA_APP_SERVER: http://localhost:8000
+      PANDA_APP_SERVER_TOKEN: test-api-key
+      BRAVE_SEARCH_API_KEY: BSAUrnclsJTEg_TdATHRQragO91FBqZ
+      MILVUS_URI: http://standalone:19530
+      CORS_ALLOWED_ORIGINS: "[\"*\"]"
+      API_KEYS: "[\"test-api-key\"]"
     volumes:
       - .:/tmp/cert
   mock_vllm:
