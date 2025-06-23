@@ -37,7 +37,7 @@ services:
 
   vllm-proxy-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.3-rc5
+    image: testinprod/panda-vllm-proxy:0.0.4-rc1
     container_name: vllm-proxy-deepseek
     privileged: true
     ports:
@@ -69,12 +69,14 @@ services:
       PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
       OMP_NUM_THREADS: 2
       API_KEYS: ${API_KEYS}
+      SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS: 21846 # staging-specific
+      PDF_CHUNK_CONCURRENCY_LIMIT: 1 # staging-specific
     depends_on:
       - vllm-deepseek
 
   vllm-proxy-llama:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.3-rc5
+    image: testinprod/panda-vllm-proxy:0.0.4-rc1
     container_name: vllm-proxy-llama
     privileged: true
     ports:
@@ -105,6 +107,8 @@ services:
       PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
       OMP_NUM_THREADS: 2
       API_KEYS: ${API_KEYS}
+      SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS: 21846 # staging-specific
+      PDF_CHUNK_CONCURRENCY_LIMIT: 1 # staging-specific
     depends_on:
       - vllm-llama
 
