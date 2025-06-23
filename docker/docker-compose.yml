@@ -54,7 +54,7 @@ services:
       VLLM_URL: http://vllm-deepseek:8000/v1/chat/completions
       VLLM_MODEL_URL: http://vllm-deepseek:8000/v1/models
       SUMMARIZATION_VLLM_URL: http://vllm-llama:8000/v1/chat/completions
-      MODEL_NAME: ig1/r1-1776-AWQ
+      MODEL_NAME: cognitivecomputations/DeepSeek-R1-0528-AWQ
       SUMMARIZATION_MODEL: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       MAX_MODEL_LENGTH: 65536
       JWT_ALGORITHM: ES256
@@ -128,7 +128,7 @@ services:
     shm_size: "32g"
     entrypoint: ["/bin/sh", "-c", "sleep 60 && /modify-tokenizer.sh && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
     command: >
-      --model ig1/r1-1776-AWQ
+      --model cognitivecomputations/DeepSeek-R1-0528-AWQ
       --dtype auto
       --tensor-parallel-size 2
       --pipeline-parallel-size 3
@@ -148,7 +148,7 @@ services:
       - HF_TOKEN=${HF_TOKEN}
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
       - TOKENIZER_DIR=/tmp/tokenizer
-      - MODEL_ID=ig1/r1-1776-AWQ
+      - MODEL_ID=cognitivecomputations/DeepSeek-R1-0528-AWQ
       - NEW_LENGTH=65536
       - RAY_CGRAPH_submit_timeout=100
       - RAY_CGRAPH_get_timeout=100
