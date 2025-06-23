@@ -1,6 +1,6 @@
 import concurrent.futures
 from typing import List, Dict, Any, Optional
-from langchain_community.document_loaders.parsers import PyMuPDFParser, RapidOCRBlobParser
+from langchain_community.document_loaders.parsers import PyMuPDFParser
 from langchain_core.documents.base import Blob
 from langchain_core.documents import Document
 import fitz
@@ -8,6 +8,7 @@ import fitz
 from ...api.v1.schemas import ChatMessage, ContentPart, PdfContent, SenderTypeEnum
 from ...api.helper.get_system_prompt import get_system_prompt
 from ...config import get_settings
+from ...rag.pdf_parser import RapidOCRBlobParser
 
 def clean_message_of_pdf_urls(chat_message: ChatMessage) -> ChatMessage:
     """Creates a new ChatMessage instance with pdf_url content parts removed."""
@@ -49,7 +50,7 @@ def parse_text_from_pdf(pdf_bytes: bytes, enable_ocr: bool = True, max_pages: Op
         enable_ocr: Whether to enable OCR for images (slower but more accurate)
         max_pages: Maximum number of pages to process (None for all pages)
     """
-    images_parser = RapidOCRBlobParser() if enable_ocr else None
+    images_parser = RapidOCRBlobParser(intra_op_num_threads=get_settings().PDF_CHUNK_CONCURRENCY_LIMIT) if enable_ocr else None
     
     parser = PyMuPDFParser(
         mode="page",
