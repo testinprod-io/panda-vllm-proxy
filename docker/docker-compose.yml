@@ -37,7 +37,7 @@ services:
 
   vllm-proxy-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.4-rc1
+    image: testinprod/panda-vllm-proxy:0.0.4-rc2
     container_name: vllm-proxy-deepseek
     privileged: true
     ports:
@@ -74,7 +74,7 @@ services:
 
   vllm-proxy-llama:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.4-rc1
+    image: testinprod/panda-vllm-proxy:0.0.4-rc2
     container_name: vllm-proxy-llama
     privileged: true
     ports:
