@@ -8,7 +8,7 @@ fi
 
 mkdir -p "$TOKENIZER_DIR"
 
-for FILE in tokenizer.json tokenizer_config.json vocab.json merges.txt special_tokens_map.json config.json; do
+for FILE in tokenizer.json tokenizer_config.json vocab.json merges.txt special_tokens_map.json config.json chat_template.jinja; do
   curl -L "https://huggingface.co/$MODEL_ID/resolve/main/$FILE" -o "$TOKENIZER_DIR/$FILE"
 done
 
