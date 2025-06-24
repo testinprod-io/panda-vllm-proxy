@@ -32,6 +32,8 @@ async def stream_vllm_response(payload: LLMRequest, auth_info: AuthInfo) -> Resp
             for action_key, handler in action_registry.items():
                 if hasattr(payload, action_key) and getattr(payload, action_key) is True:
                     log.info(f"Executing custom action: {action_key} based on LLMRequest field: {getattr(payload, action_key)}")
+                    if not payload.stream:
+                        raise HTTPException(status_code=400, detail="Custom actions are not supported in non-streaming mode")
                     return await handler(payload, auth_info.user_id)
 
             response_from_llm = await arequest_llm(modified_request_body_str, stream=should_stream, user_id=auth_info.user_id, use_vector_db=True)
