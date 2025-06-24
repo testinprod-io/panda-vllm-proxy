@@ -26,7 +26,7 @@ services:
       - shared-tmpfs:/cert-dir
     environment:
       - PANDA_LLM_DOMAIN=llm-alpha.panda.chat
-      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil8.panda.chat"]
+      - PANDA_LLM_CERT_DOMAINS=["llm-alpha.panda.chat", "nil11.panda.chat"]
       - PANDA_CERT_DIR=/cert-dir
       - PANDA_ACME_URL=https://acme-v02.api.letsencrypt.org/directory
       - PANDA_CF_API_TOKEN=${PANDA_CF_API_TOKEN}
@@ -37,7 +37,7 @@ services:
 
   vllm-proxy-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.4-rc1
+    image: testinprod/panda-vllm-proxy:0.0.4-rc2
     container_name: vllm-proxy-deepseek
     privileged: true
     ports:
@@ -54,7 +54,7 @@ services:
       VLLM_URL: http://vllm-deepseek:8000/v1/chat/completions
       VLLM_MODEL_URL: http://vllm-deepseek:8000/v1/models
       SUMMARIZATION_VLLM_URL: http://vllm-llama:8000/v1/chat/completions
-      MODEL_NAME: ig1/r1-1776-AWQ
+      MODEL_NAME: cognitivecomputations/DeepSeek-R1-0528-AWQ
       SUMMARIZATION_MODEL: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
       MAX_MODEL_LENGTH: 65536
       JWT_ALGORITHM: ES256
@@ -74,7 +74,7 @@ services:
 
   vllm-proxy-llama:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.4-rc1
+    image: testinprod/panda-vllm-proxy:0.0.4-rc2
     container_name: vllm-proxy-llama
     privileged: true
     ports:
@@ -110,7 +110,7 @@ services:
 
   vllm-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-ray:0.9.1-4
+    image: testinprod/panda-vllm-ray:0.9.1-5
     container_name: vllm-deepseek
     runtime: nvidia
     ports:
@@ -128,7 +128,7 @@ services:
     shm_size: "32g"
     entrypoint: ["/bin/sh", "-c", "sleep 60 && /modify-tokenizer.sh && exec python3 -m vllm.entrypoints.openai.api_server \"$@\"", "--"]
     command: >
-      --model ig1/r1-1776-AWQ
+      --model cognitivecomputations/DeepSeek-R1-0528-AWQ
       --dtype auto
       --tensor-parallel-size 2
       --pipeline-parallel-size 3
@@ -141,6 +141,7 @@ services:
       --distributed-executor-backend ray
       --disable-log-requests
       --tokenizer=/tmp/tokenizer
+      --chat-template=/tmp/tokenizer/chat_template.jinja
       --swap-space=8
     environment:
       - OMP_NUM_THREADS=16
@@ -148,7 +149,7 @@ services:
       - HF_TOKEN=${HF_TOKEN}
       - CUDA_DEVICE_ORDER=PCI_BUS_ID
       - TOKENIZER_DIR=/tmp/tokenizer
-      - MODEL_ID=ig1/r1-1776-AWQ
+      - MODEL_ID=cognitivecomputations/DeepSeek-R1-0528-AWQ
       - NEW_LENGTH=65536
       - RAY_CGRAPH_submit_timeout=100
       - RAY_CGRAPH_get_timeout=100
