@@ -110,7 +110,7 @@ services:
 
   vllm-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-ray:0.9.1-4
+    image: testinprod/panda-vllm-ray:0.9.1-5
     container_name: vllm-deepseek
     runtime: nvidia
     ports:
@@ -141,6 +141,7 @@ services:
       --distributed-executor-backend ray
       --disable-log-requests
       --tokenizer=/tmp/tokenizer
+      --chat-template=/tmp/tokenizer/chat_template.jinja
       --swap-space=8
     environment:
       - OMP_NUM_THREADS=16
