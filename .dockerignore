@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# IDE and Editor specific
+.idea/
+.vscode/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+mypy.ini
+poetry.toml
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Documentation and examples
+README.md
+ex.txt
+
+# CI/CD
+.github/
+
+# Directories not part of the application
+deployments/
+verification/
+tests/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+wheels/
+
+# Docker
+docker/
+Dockerfile
+.dockerignore 
