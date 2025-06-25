@@ -1,7 +1,6 @@
 import json
 import asyncio
 from fastapi.responses import StreamingResponse, JSONResponse
-from fastapi import HTTPException
 from typing import AsyncGenerator
 
 from ...logger import log
@@ -168,5 +167,17 @@ async def search_stream(payload: LLMRequest, user_id: str) -> AsyncGenerator[str
             yield chunk
     except Exception as e:
         log.error(f"An error occurred during search stream: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        yield format_sse_message(
+            data={
+                "object": "process.event",
+                "id": create_random_event_id(),
+                "type": "search",
+                "message": f"An error occurred during search stream: {e}",
+                "data": {
+                    "status_code": 500,
+                }
+            },
+        )
+        # Terminate the stream
+        return
 

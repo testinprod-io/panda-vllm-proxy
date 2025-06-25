@@ -2,7 +2,6 @@ import base64
 import json
 import asyncio
 from fastapi.responses import StreamingResponse, JSONResponse
-from fastapi import HTTPException
 import fitz
 from typing import AsyncGenerator
 
@@ -177,4 +176,16 @@ async def pdf_stream(payload: LLMRequest, user_id: str) -> AsyncGenerator[str, N
             yield chunk
     except Exception as e:
         log.error(f"An error occurred during PDF stream: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        yield format_sse_message(
+            data={
+                "object": "process.event",
+                "id": create_random_event_id(),
+                "type": "pdf",
+                "message": f"An error occurred during PDF stream: {e}",
+                "data": {
+                    "status_code": 500,
+                }
+            },
+        )
+        # Terminate the stream
+        return
