@@ -31,7 +31,6 @@ ex.txt
 # Directories not part of the application
 deployments/
 verification/
-tests/
 
 # Build artifacts
 build/
