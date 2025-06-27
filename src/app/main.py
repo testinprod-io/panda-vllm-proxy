@@ -1,11 +1,7 @@
-import os
-from pathlib import Path
-
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-import nltk
 
 from .api import router as api_router
 from .api.response.response import ok, error, unexpect_error
@@ -29,15 +25,6 @@ async def lifespan(app: FastAPI):
     log.info("Attempting to pre-load reranker model by initializing Reranker...")
     get_reranker()
     log.info("Reranker initialized and model should be pre-loaded.")
-
-    pid = os.getpid()
-    cache_dir = os.path.join("/tmp/nltk", str(pid))
-    Path(cache_dir).mkdir(parents=True, exist_ok=True)
-
-    # Download NLTK resources, used for keyword extraction at RAG
-    nltk.download("stopwords", quiet=True, download_dir=cache_dir)
-    nltk.download("punkt", quiet=True, download_dir=cache_dir)
-    nltk.download("punkt_tab", quiet=True, download_dir=cache_dir)
 
     yield
 
