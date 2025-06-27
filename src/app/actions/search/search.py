@@ -6,39 +6,30 @@ from typing import AsyncGenerator
 from ...logger import log
 from ...api.helper.request_llm import arequest_llm, get_user_collection_name
 from ...api.helper.request_summary import call_summarization_llm
-from .utils import augment_messages_with_search, extract_keywords_from_query
-from ...api.v1.schemas import LLMRequest, TextContent, SenderTypeEnum 
+from ...api.v1.schemas import LLMRequest
 from ...rag import PandaWebRetriever
 from ...dependencies import get_milvus_wrapper
 from ...api.helper.format_sse import format_sse_message, create_random_event_id
+from .utils import augment_messages_with_search
+from .models import SearchToolArgs
 
-async def search_handler(payload: LLMRequest, user_id: str) -> StreamingResponse:
+async def search_handler(payload: LLMRequest, user_id: str, search_query_args: str) -> StreamingResponse:
     """
     Handle search functionality by augmenting the request with search results.
     """
-    return StreamingResponse(search_stream(payload, user_id), media_type="text/event-stream")
+    return StreamingResponse(search_stream(payload, user_id, search_query_args), media_type="text/event-stream")
 
-async def search_stream(payload: LLMRequest, user_id: str) -> AsyncGenerator[str, None]:
+async def search_stream(payload: LLMRequest, user_id: str, search_query_args: str) -> AsyncGenerator[str, None]:
     """
     Handle search functionality by augmenting the request with search results.
     """
-    # Extract the search query text from the last user message
-    user_chat_messages = [msg for msg in payload.messages if msg.role == SenderTypeEnum.USER.value or msg.role == "user"]
-    if not user_chat_messages:
-        log.warning("No user message found in LLMRequest for search.")
-        raise ValueError("No user message found in the request for search action.")
     
-    # Extract text from content parts
-    last_user_chat_message = user_chat_messages[-1]
-    query_text_parts = []
-    for content_part in last_user_chat_message.content:
-        if isinstance(content_part, TextContent):
-            query_text_parts.append(content_part.text)
+    try:
+        decoded_search_query_args = SearchToolArgs.model_validate_json(search_query_args)
+    except Exception as e:
+        log.error(f"Error validating search query args: {e}", exc_info=True)
+        decoded_search_query_args = SearchToolArgs(query=search_query_args)
     
-    if not query_text_parts:
-        log.warning("No text content found in the last user message for search.")
-        raise ValueError("No text content found in the last user message for search action.")
-
     try:
         yield format_sse_message(
             data={
@@ -50,11 +41,7 @@ async def search_stream(payload: LLMRequest, user_id: str) -> AsyncGenerator[str
             },
         )
 
-        actual_search_query = " ".join(query_text_parts)
-
-        # Extract keywords from the search query
-        keywords = await extract_keywords_from_query(actual_search_query)
-        keywords = " ".join(keyword for keyword in keywords if keyword)
+        actual_search_query = decoded_search_query_args.query
         
         yield format_sse_message(
             data={
@@ -63,7 +50,7 @@ async def search_stream(payload: LLMRequest, user_id: str) -> AsyncGenerator[str
                 "type": "search",
                 "message": "",
                 "data": {
-                    "query": keywords,
+                    "query": actual_search_query,
                 },
             },
         )
@@ -80,8 +67,11 @@ async def search_stream(payload: LLMRequest, user_id: str) -> AsyncGenerator[str
             },
         )
 
-        search_results = await retriever.ainvoke(keywords)
+        search_results = await retriever.ainvoke(actual_search_query)
         if not search_results:
+            yield format_sse_message(
+                data="[RAG_DONE]"
+            )
             log.warning(f"No search results found for user {user_id}.")
             llm_response = await arequest_llm(payload.model_dump_json(exclude_none=True), user_id=user_id, use_vector_db=True)
             async for chunk in llm_response.aiter_text():
