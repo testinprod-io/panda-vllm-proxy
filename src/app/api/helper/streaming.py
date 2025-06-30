@@ -10,17 +10,16 @@ async def generate_stream(response) -> AsyncGenerator[str, None]:
     
     Args:
         response: The streaming response from the LLM
-        extract_id: Whether to extract and validate the chat ID from the first chunk
         
     Yields:
         Each chunk of the streaming response
         
     Raises:
-        Exception: If chat_id extraction fails when extract_id is True
+        Exception: If an error occurs during streaming
     """
     h = sha256()
     try:
-        async for chunk in response.aiter_text(): # Now this line is safe
+        async for chunk in response.aiter_text():
             h.update(chunk.encode())
 
             yield chunk
@@ -36,7 +35,6 @@ def create_streaming_response(response, media_type: str = "text/event-stream") -
     Args:
         response: The streaming response from the LLM
         media_type: The media type for the response
-        extract_id: Whether to extract and validate the chat ID
         
     Returns:
         StreamingResponse: A FastAPI StreamingResponse object
