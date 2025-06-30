@@ -109,6 +109,7 @@ services:
       API_KEYS: ${API_KEYS}
       SUMMARIZATION_LLM_INPUT_CONTEXT_TOKENS: 21846 # staging-specific
       PDF_CHUNK_CONCURRENCY_LIMIT: 1 # staging-specific
+      MAX_MODEL_LENGTH: 32768 # staging-specific
     depends_on:
       - vllm-llama
 
