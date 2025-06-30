@@ -2,6 +2,8 @@ from langchain_community.document_loaders.parsers import BaseImageBlobParser
 from PIL.Image import Image
 import numpy as np
 
+from ..logger import log
+
 class RapidOCRBlobParser(BaseImageBlobParser):
     """Parser for extracting text from images using the RapidOCR library.
 
@@ -43,7 +45,24 @@ class RapidOCRBlobParser(BaseImageBlobParser):
                     "`rapidocr-onnxruntime` package not found, please install it with "
                     "`pip install rapidocr-onnxruntime`"
                 )
-        ocr_result, _ = self.ocr(np.array(img))  # type: ignore[misc]
+            except Exception as e:
+                log.error(f"An unexpected error occurred during RapidOCR initialization: {e}", exc_info=True)
+                raise
+
+        try:
+            img_array = np.array(img)
+            
+            # Skip OCR for very small images that are likely not text.
+            MIN_IMAGE_HEIGHT = 30
+            MIN_IMAGE_WIDTH = 30
+            if img_array.shape[0] < MIN_IMAGE_HEIGHT or img_array.shape[1] < MIN_IMAGE_WIDTH:
+                return ""
+            
+            ocr_result, _ = self.ocr(img_array)
+        except Exception as e:
+            log.error(f"CRITICAL: Error during ocr() call in _analyze_image: {e}", exc_info=True)
+            raise ValueError(f"OCR engine failed internally. Original error: {e}") from e
+
         content = ""
         if ocr_result:
             content = ("\n".join([text[1] for text in ocr_result])).strip()
