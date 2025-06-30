@@ -1,8 +1,8 @@
 from typing import List, Optional, Any, Dict
 import json
 from pydantic import Field
-import aiohttp
 import asyncio
+import trafilatura
 
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.documents import Document
@@ -11,7 +11,6 @@ from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from duckduckgo_search import DDGS
 from langchain_community.utilities import BraveSearchWrapper
 from langchain_community.document_loaders import AsyncHtmlLoader
-from langchain_community.document_transformers import Html2TextTransformer
 
 from ..config import get_settings
 from ..logger import log
@@ -83,12 +82,16 @@ class PandaWebRetriever(BaseRetriever):
 
         url_to_look = []
         seen_urls = set()
+        url_to_snippet = {}
         for res in search_items:
             if isinstance(res, dict) and res.get("link"):
                 url = res["link"]
                 if url not in seen_urls:
                     seen_urls.add(url)
                     url_to_look.append(url)
+                    snippet = res.get("snippet")
+                    if snippet:
+                        url_to_snippet[url] = snippet
                     if len(url_to_look) >= self.max_urls_to_process:
                         log.info(f"Reached max URLs limit ({self.max_urls_to_process}), stopping URL collection")
                         break
@@ -100,45 +103,57 @@ class PandaWebRetriever(BaseRetriever):
             return []
 
         log.info(f"Attempting to load {len(url_to_look)} URLs")
-        timeout = aiohttp.ClientTimeout(total=10)
+        
         loader = AsyncHtmlLoader(
             url_to_look, 
             ignore_load_errors=True,
             requests_kwargs={
-                "max_line_size": 8192,
-                "max_field_size": 8192,
-                "timeout": timeout,
+                "max_line_size": 16384,
+                "max_field_size": 16384,
             }
         )
         
-        docs = await loader.aload()
-        log.info(f"Loaded {len(docs)} documents")
-        if not docs:
+        try:
+            docs_with_html = await loader.aload()
+            log.info(f"Loaded {len(docs_with_html)} documents from web pages")
+        except Exception as e:
+            log.error(f"Error loading documents from web pages: {e}", exc_info=True)
+            return []
+
+        if not docs_with_html:
             log.warning(f"AsyncHtmlLoader returned no documents for URLs")
             return []
-        
-        # Transform documents in parallel using asyncio
-        html2text = Html2TextTransformer()
-        
-        # Process document transformation in batches using thread pool
-        batch_size = max(1, len(docs) // 3)
-        doc_batches = [docs[i:i + batch_size] for i in range(0, len(docs), batch_size)]
-        
-        # Create tasks for parallel processing
-        transform_tasks = []
-        for batch in doc_batches:
-            task = loop.run_in_executor(None, html2text.transform_documents, batch)
-            transform_tasks.append(task)
-        
-        # Wait for all transformations to complete
-        batch_results = await asyncio.gather(*transform_tasks)
-        
-        # Flatten the results
-        transformed_docs = []
-        for batch_result in batch_results:
-            transformed_docs.extend(batch_result)
 
-        docs = self.text_splitter.split_documents(transformed_docs)
+        def extract_content(doc: Document) -> Optional[Document]:
+            html_content = doc.page_content
+            if not html_content:
+                return None
+            
+            extracted_text = trafilatura.extract(
+                html_content,
+                include_comments=False,
+                include_tables=True,
+                no_fallback=True
+            )
+
+            if not extracted_text:
+                return None
+                
+            new_doc = Document(page_content=extracted_text, metadata=doc.metadata)
+            source_url = new_doc.metadata.get("source")
+            if source_url and source_url in url_to_snippet:
+                new_doc.metadata["snippet"] = url_to_snippet[source_url]
+            return new_doc
+
+        loop = asyncio.get_running_loop()
+        tasks = [loop.run_in_executor(None, extract_content, doc) for doc in docs_with_html]
+        processed_docs_results = await asyncio.gather(*tasks)
+
+        docs = [doc for doc in processed_docs_results if doc is not None]
+        log.info(f"Successfully extracted content from {len(docs)} documents using trafilatura")
+
+        # Transform documents in parallel using asyncio
+        docs = self.text_splitter.split_documents(docs)
 
         log.info(f"Processed documents: {len(docs)} documents")
         return docs
