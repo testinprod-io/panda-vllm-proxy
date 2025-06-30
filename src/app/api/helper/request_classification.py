@@ -1,5 +1,5 @@
 import httpx
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Dict
 import json
 from fastapi.responses import JSONResponse
 
@@ -7,13 +7,17 @@ from ...config import get_settings
 from ...api.helper.get_system_prompt import get_system_prompt
 from ...api.v1.schemas import LLMRequest, ToolCall, ContentPart
 from ...logger import log
-from ...actions.tool_calls.get_tools import get_default_tools
 
 settings = get_settings()
 SUMMARIZATION_MODEL = settings.SUMMARIZATION_MODEL
 SUMMARIZATION_VLLM_URL = settings.SUMMARIZATION_VLLM_URL
 
-async def request_classification(content: Union[str, ContentPart, List[ContentPart]] , max_tokens: int = 50) -> tuple[bool, List[ToolCall]]:
+async def request_classification(
+    content: Union[str, ContentPart, List[ContentPart]],
+    prompt_key: str,
+    tools: List[Dict],
+    max_tokens: int = 50,
+) -> tuple[bool, List[ToolCall]]:
     """
     Request classification for a given text.
     """
@@ -26,7 +30,7 @@ async def request_classification(content: Union[str, ContentPart, List[ContentPa
     elif isinstance(content, List):
         content_text = " ".join([part.text for part in content])
 
-    classification_prompt = await get_classification_prompt(content_text)
+    classification_prompt = await get_classification_prompt(content_text, prompt_key)
 
     try:
         request_body: LLMRequest = {
@@ -40,7 +44,7 @@ async def request_classification(content: Union[str, ContentPart, List[ContentPa
             "max_tokens": max_tokens,
             "temperature": 0.2,
             "stream": False,
-            "tools": get_default_tools(),
+            "tools": tools,
             "tool_choice": "auto"
         }
 
@@ -69,11 +73,11 @@ async def request_classification(content: Union[str, ContentPart, List[ContentPa
         log.error(f"Error requesting classification: {e}", exc_info=True)
         return [False, []]
 
-async def get_classification_prompt(content: str) -> str:
+async def get_classification_prompt(content: str, prompt_key: str) -> str:
     """
     Get the classification prompt.
     """
-    classification_prompt = await get_system_prompt(SUMMARIZATION_MODEL, "classification")
+    classification_prompt = await get_system_prompt(SUMMARIZATION_MODEL, prompt_key)
     if classification_prompt:
         return classification_prompt.format(content=content)
     return ""

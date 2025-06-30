@@ -12,6 +12,7 @@ from ...dependencies import get_milvus_wrapper
 from ...api.helper.format_sse import format_sse_message, create_random_event_id
 from .utils import augment_messages_with_search
 from .models import SearchToolArgs
+from ...config import get_settings
 
 async def search_handler(payload: LLMRequest, user_id: str, search_query_args: str) -> StreamingResponse:
     """
@@ -42,6 +43,8 @@ async def search_stream(payload: LLMRequest, user_id: str, search_query_args: st
         )
 
         actual_search_query = decoded_search_query_args.query
+        requirements = decoded_search_query_args.requirements
+        num_search_results = 3 if requirements == "deep_dive" else 2
         
         yield format_sse_message(
             data={
@@ -55,7 +58,7 @@ async def search_stream(payload: LLMRequest, user_id: str, search_query_args: st
             },
         )
         
-        retriever = PandaWebRetriever()
+        retriever = PandaWebRetriever(num_search_results=num_search_results)
 
         yield format_sse_message(
             data={
@@ -99,7 +102,7 @@ async def search_stream(payload: LLMRequest, user_id: str, search_query_args: st
         # Run the milvus operation
         loop = asyncio.get_running_loop()
         from_doc_job = loop.run_in_executor(
-            None, 
+            None,
             milvus_instance.from_documents_for_user, 
             user_collection_name, 
             search_results
@@ -129,7 +132,9 @@ async def search_stream(payload: LLMRequest, user_id: str, search_query_args: st
 
         # Summarize the search results with the LLM
         search_results_str = "\n\n".join([result.page_content for result in search_results])
-        search_results_str = await call_summarization_llm(search_results_str, 1000)
+        if len(search_results_str) / 3 > get_settings().MAX_MODEL_LENGTH * 0.25:
+            log.info(f"Summarizing search results")
+            search_results_str = await call_summarization_llm(search_results_str, 500)
 
         yield format_sse_message(
             data="[RAG_DONE]"

@@ -7,3 +7,4 @@ class SearchResult(BaseModel):
 
 class SearchToolArgs(BaseModel):
     query: str
+    requirements: str

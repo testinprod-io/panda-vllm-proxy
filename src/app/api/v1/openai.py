@@ -7,6 +7,7 @@ from ...api.helper.streaming import create_streaming_response
 from ...api.helper.request_classification import request_classification
 from ...logger import log
 from ...actions.registry import get_action_registry
+from ...actions.tool_calls.get_tools import get_default_tools
 from .schemas import LLMRequest
 from ...config import get_settings
 
@@ -42,7 +43,7 @@ async def stream_vllm_response(payload: LLMRequest, auth_info: AuthInfo) -> Resp
         last_user_message = payload.messages[-1].content
 
         # Send the modified last user message to the classification LLM
-        is_tool_call_request, response = await request_classification(last_user_message)
+        is_tool_call_request, response = await request_classification(last_user_message, "need_search", get_default_tools())
         if is_tool_call_request and len(response) > 0:
             for tool_call in response:
                 if tool_call.function.name == "use_search":

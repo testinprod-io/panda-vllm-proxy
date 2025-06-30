@@ -12,32 +12,9 @@ def get_default_tools():
                     "type": "object",
                     "properties": {
                         "query": {"type": "string", "description": "The query to search the web for"},
+                        "requirements": {"type": "string", "description": "The requirements for the search - choose from: 'factual_explanation', 'brief_explanation', 'deep_dive', 'latest_updates'"},
                     },
-                    "required": ["query"]
-                }
-            }
-        }
-    ]
-    return tools
-
-# TODO - apply this.
-def get_more_info_tools():
-    """
-    This tool is called when we need to get more information about the user's request.
-    This 'staged' tool call can reduce the TTFT of the response.
-    """
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "more_info",
-                "description": "This tool is called when we need to get more information about the user's request",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "need_more_info": {"type": "boolean", "description": "Whether to get more information about the user's request"},
-                    },
-                    "required": ["need_more_info"]
+                    "required": ["query", "requirements"]
                 }
             }
         }
