@@ -18,6 +18,11 @@ discovery.relabel "cadvisor_relabel" {
     targets = prometheus.exporter.cadvisor.cadvisor.targets
 
     rule {
+        target_label = "application"
+        replacement = "panda-vllm-proxy"
+    }
+
+    rule {
         target_label = "instance"
         replacement = "cudo-h100-1"
     }
@@ -42,7 +47,7 @@ prometheus.scrape "cadvisor" {
 
 prometheus.scrape "nvidia_smi_exporter" {
     targets = [
-        { __address__ = "nvidia-smi-exporter:9835", job = "nvidia-smi-exporter", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
+        { __address__ = "nvidia-smi-exporter:9835", application = "panda-vllm-proxy", job = "nvidia-smi-exporter", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
     ]
 
     scrape_interval = "15s"
@@ -56,9 +61,9 @@ prometheus.scrape "nvidia_smi_exporter" {
 
 prometheus.scrape "metrics" {
     targets = [
-        { __address__ = "vllm-deepseek:8000", job = "vllm-deepseek", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
-        { __address__ = "vllm-llama:8000", job = "vllm-llama", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
-        { __address__ = "standalone:9091", job = "milvus", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
+        { __address__ = "vllm-deepseek:8000", application = "panda-vllm-proxy", job = "vllm-deepseek", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
+        { __address__ = "vllm-llama:8000", application = "panda-vllm-proxy", job = "vllm-llama", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
+        { __address__ = "standalone:9091", application = "panda-vllm-proxy", job = "milvus", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
     ]
   
     scrape_interval = "15s"
@@ -72,7 +77,7 @@ prometheus.scrape "metrics" {
 
 prometheus.scrape "alloy_self" {
     targets = [
-        { __address__ = "localhost:12345", job = "alloy" },
+        { __address__ = "localhost:12345", application = "panda-vllm-proxy", job = "alloy" },
     ]
     
     scrape_interval = "15s"
@@ -95,6 +100,11 @@ discovery.relabel "getting_started" {
 		regex         = "/(.*)"
 		target_label  = "container"
 	}
+
+    rule {
+        target_label = "application"
+        replacement = "panda-vllm-proxy"
+    }
 
     rule {
         target_label = "instance"
