@@ -32,7 +32,7 @@ discovery.relabel "node_exporter" {
 
     rule {
         target_label = "application"
-        replacement = "panda-app-server"
+        replacement = "panda-vllm-proxy"
     }
 
     rule {
@@ -138,7 +138,7 @@ prometheus.scrape "metrics" {
 
 prometheus.scrape "alloy_self" {
     targets = [
-        { __address__ = "localhost:12345", application = "panda-vllm-proxy", job = "alloy" },
+        { __address__ = "localhost:12345", application = "panda-vllm-proxy", job = "alloy", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
     ]
     
     scrape_interval = "15s"
