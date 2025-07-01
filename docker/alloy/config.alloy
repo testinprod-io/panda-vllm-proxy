@@ -6,6 +6,62 @@ prometheus.remote_write "prometheus" {
     }
 }
 
+// ──────────────── NODE EXPORTER METRICS ────────────
+
+prometheus.exporter.unix "node_exporter" {
+    disable_collectors = ["ipvs", "btrfs", "infiniband", "xfs", "zfs"]
+    enable_collectors = ["meminfo"]
+
+    filesystem {
+        fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|tmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$"
+        mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+)($|/)"
+        mount_timeout        = "5s"
+    }
+
+    netclass {
+        ignored_devices = "^(veth.*|cali.*|[a-f0-9]{15})$"
+    }
+
+    netdev {
+        device_exclude = "^(veth.*|cali.*|[a-f0-9]{15})$"
+    }
+}
+
+discovery.relabel "node_exporter" {
+    targets = prometheus.exporter.unix.node_exporter.targets
+
+    rule {
+        target_label = "application"
+        replacement = "panda-vllm-proxy"
+    }
+
+    rule {
+        target_label = "job"
+        replacement = "node_exporter"
+    }
+
+    rule {
+        target_label = "instance"
+        replacement = env("INSTANCE")
+    }
+
+    rule {
+        target_label = "environment"
+        replacement = env("ENVIRONMENT")
+    }
+
+    rule {
+        target_label = "source_type"
+        replacement = "guest"
+    }
+}
+
+prometheus.scrape "node_exporter" {
+    scrape_interval = "15s"
+    targets    = discovery.relabel.node_exporter.output
+    forward_to = [prometheus.remote_write.prometheus.receiver]
+}
+
 // ──────────────── CADVISOR METRICS ────────────
 
 prometheus.exporter.cadvisor "cadvisor" {
@@ -23,13 +79,18 @@ discovery.relabel "cadvisor_relabel" {
     }
 
     rule {
+        target_label = "job"
+        replacement = "cadvisor"
+    }
+
+    rule {
         target_label = "instance"
-        replacement = "cudo-h100-1"
+        replacement = env("INSTANCE")
     }
 
     rule {
         target_label = "environment"
-        replacement = "production"
+        replacement = env("ENVIRONMENT")
     }
 
     rule {
@@ -77,7 +138,7 @@ prometheus.scrape "metrics" {
 
 prometheus.scrape "alloy_self" {
     targets = [
-        { __address__ = "localhost:12345", application = "panda-vllm-proxy", job = "alloy" },
+        { __address__ = "localhost:12345", application = "panda-vllm-proxy", job = "alloy", instance = env("INSTANCE"), environment = env("ENVIRONMENT"), source_type = "guest" },
     ]
     
     scrape_interval = "15s"
