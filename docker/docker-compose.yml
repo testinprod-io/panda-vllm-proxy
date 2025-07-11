@@ -37,7 +37,7 @@ services:
 
   vllm-proxy-deepseek:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.4-rc2
+    image: testinprod/panda-vllm-proxy:0.0.5
     container_name: vllm-proxy-deepseek
     privileged: true
     ports:
@@ -56,7 +56,6 @@ services:
       SUMMARIZATION_VLLM_URL: http://vllm-llama:8000/v1/chat/completions
       MODEL_NAME: cognitivecomputations/DeepSeek-R1-0528-AWQ
       SUMMARIZATION_MODEL: RedHatAI/Llama-4-Scout-17B-16E-Instruct-quantized.w4a16
-      MAX_MODEL_LENGTH: 65536
       JWT_ALGORITHM: ES256
       APP_ID: cmavhlsn7019ll20lsdkqf0so
       BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
@@ -69,12 +68,13 @@ services:
       PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
       OMP_NUM_THREADS: 12
       API_KEYS: ${API_KEYS}
+      MAX_MODEL_LENGTH: 100000
     depends_on:
       - vllm-deepseek
 
   vllm-proxy-llama:
     <<: *common-config
-    image: testinprod/panda-vllm-proxy:0.0.4-rc2
+    image: testinprod/panda-vllm-proxy:0.0.5
     container_name: vllm-proxy-llama
     privileged: true
     ports:
@@ -257,7 +257,7 @@ services:
 
   alloy:
     <<: *common-config
-    image: testinprod/panda-alloy:0.0.2-rc3
+    image: testinprod/panda-alloy:0.0.4-rc1
     environment:
       - PROMETHEUS_HOST=${PROMETHEUS_HOST}
       - LOKI_HOST=${LOKI_HOST}
