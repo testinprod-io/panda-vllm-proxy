@@ -105,6 +105,7 @@ services:
       PANDA_APP_SERVER_TOKEN: ${PANDA_APP_SERVER_TOKEN}
       OMP_NUM_THREADS: 12
       API_KEYS: ${API_KEYS}
+      MAX_MODEL_LENGTH: 100000
     depends_on:
       - vllm-llama
 

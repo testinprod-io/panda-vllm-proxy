@@ -47,6 +47,17 @@ class LLMRequest(BaseModel):
     stream: Optional[bool] = Field(default=True, description="Whether to stream the response.")
     use_search: Optional[bool] = Field(default=False, description="Whether to use search to answer the question.")
     use_pdf: Optional[bool] = Field(default=False, description="Whether to analyze a pdf to answer the question.")
+    tools: Optional[List[Dict[str, Any]]] = Field(default=None, description="Optional. A list of tools to use.")
+    tool_choice: Optional[str] = Field(default=None, description="Optional. Whether to use the tools provided in the `tools` field.")
+
+class ToolFunction(BaseModel):
+    name: str
+    arguments: str
+
+class ToolCall(BaseModel):
+    id: str
+    type: str
+    function: ToolFunction
 
 class SummaryResponse(BaseModel):
     summary: str

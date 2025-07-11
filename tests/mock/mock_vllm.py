@@ -68,6 +68,44 @@ async def chat_completions(request: Request):
             generate_stream(),
             media_type="text/event-stream"
         )
+    elif body.get("tool_choice", "auto") == "auto":
+        full_content = "".join(messages_content_parts)
+        response_full = {
+            "id": mock_id,
+            "object": "chat.completion",
+            "created": created_time,
+            "model": mock_model,
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "reasoning_content": None,
+                    "content": full_content,
+                    "tool_calls": [
+                        {
+                            "id": "tool_call_1",
+                            "type": "function",
+                            "function": {
+                                "name": "use_search",
+                                "arguments": "{\"query\": \"average bitcoin price 2021\", \"number\": 1}"
+                            }
+                        }
+                    ]
+                },
+                "logprobs": None,
+                "finish_reason": "stop",
+                "stop_reason": None
+            }],
+            "usage": { 
+                "prompt_tokens": body.get("max_tokens", 0) // 2 if body.get("max_tokens") else 10, 
+                "completion_tokens": len(full_content.split()), 
+                "total_tokens": (body.get("max_tokens", 0) // 2 if body.get("max_tokens") else 10) + len(full_content.split()),
+                "prompt_tokens_details": None
+            },
+            "prompt_logprobs": None
+        }
+        logger.info(f"Sending non-streamed response: {response_full}")
+        return JSONResponse(content=response_full)
     else:
         # Non-streaming response
         full_content = "".join(messages_content_parts)
