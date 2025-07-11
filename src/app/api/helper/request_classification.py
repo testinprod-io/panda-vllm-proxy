@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from ...config import get_settings
 from ...api.helper.get_system_prompt import get_system_prompt
-from ...api.v1.schemas import LLMRequest, ToolCall, ContentPart
+from ...api.v1.schemas import LLMRequest, ToolCall, ContentPart, TextContent
 from ...logger import log
 
 settings = get_settings()
@@ -26,9 +26,15 @@ async def request_classification(
 
     content_text = content
     if isinstance(content, ContentPart):
-        content_text = content.text
+        if isinstance(content, TextContent):
+            content_text = content.text
+        else:
+            return [False, []]
     elif isinstance(content, List):
-        content_text = " ".join([part.text for part in content])
+        if all(isinstance(part, TextContent) for part in content):
+            content_text = " ".join([part.text for part in content])
+        else:
+            return [False, []]
 
     classification_prompt = await get_classification_prompt(content_text, prompt_key)
 
