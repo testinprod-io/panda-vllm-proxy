@@ -184,6 +184,9 @@ services:
       --distributed-executor-backend ray
       --disable-log-requests
       --swap-space=8
+      --enable-auto-tool-choice
+      --tool-call-parser llama4_pythonic
+      --chat-template examples/tool_chat_template_llama4_pythonic.jinja
     environment:
       - OMP_NUM_THREADS=16
       - LLM_USE_V1=1
